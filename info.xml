@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jtlshopplugin>
+    <Name>Endereco - internationale Adressprüfung und Autovervollständigung - DHL Leitcode kompatibel</Name>
+    <Description>Optimiert die Stammdaten Ihrer Kunden: korrigiert und normiert die Adressen, unterstützt bei der Eingabe der Adresse und der E-Mail Adresse.</Description>
+    <Author>Ilja Weber</Author>
+    <URL>https://www.endereco.de</URL>
+    <PluginID>endereco_jtl5_client</PluginID>
+    <XMLVersion>100</XMLVersion>
+    <MinShopVersion>5.0.0</MinShopVersion>
+    <CreateDate>2021-03-24</CreateDate>
+    <Version>1.0.0</Version>
+    <Install>
+        <FlushTags>CACHING_GROUP_TEMPLATE</FlushTags>
+        <Locales>
+            <Variable>
+                <VariableLocalized iso="GER">Adresse prüfen</VariableLocalized>
+                <VariableLocalized iso="ENG">Check your address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_popup_headline</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die von Ihnen eingegebene Adresse scheint nicht korrekt oder unvollständig zu sein. Bitte wählen Sie die korrekte Adresse aus.</VariableLocalized>
+                <VariableLocalized iso="ENG">The address you entered seems to have a problem. Please select an address from options under.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_popup_subline</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Ihre Adresse konnte nicht verifiziert werden. Bitte prüfen Sie Ihre Eingabe und ändern oder bestätigen sie.</VariableLocalized>
+                <VariableLocalized iso="ENG">Your address could not be verified. Please check and edit or confirm it.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_popup_subline_not_found</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Ihre Adresse konnte nicht verifiziert werden. Bitte prüfen Sie Ihre Eingabe und ändern oder bestätigen sie.</VariableLocalized>
+                <VariableLocalized iso="ENG">Your address could not be verified. Please check and edit or confirm it.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_mistake_no_predictions_subline</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Ich bestätige, dass meine Adresse korrekt und zustellbar ist.</VariableLocalized>
+                <VariableLocalized iso="ENG">I confirm, that my address is correct and deliverable.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_confirm_my_address_checkout</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Ihre Eingabe:</VariableLocalized>
+                <VariableLocalized iso="ENG">Your entry:</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_your_input</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">(bearbeiten)</VariableLocalized>
+                <VariableLocalized iso="ENG">(edit)</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_edit_input</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Unsere Vorschläge:</VariableLocalized>
+                <VariableLocalized iso="ENG">Our suggestions:</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_our_suggestions</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Auswahl übernehmen</VariableLocalized>
+                <VariableLocalized iso="ENG">Use selected address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_use_selected</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Adresse bestätigen</VariableLocalized>
+                <VariableLocalized iso="ENG">Confirm address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_confirm_address</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Adresse bearbeiten</VariableLocalized>
+                <VariableLocalized iso="ENG">Edit address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_edit_address</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Falsche Adressen können zu Problemen in der Zustellung führen und weitere Kosten verursachen.</VariableLocalized>
+                <VariableLocalized iso="ENG">Incorrect addresses can lead to problems in delivery and cause further costs.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_faulty_address_warning</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Adresse prüfen</VariableLocalized>
+                <VariableLocalized iso="ENG">Check your address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_general_address</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Rechnungsadresse prüfen</VariableLocalized>
+                <VariableLocalized iso="ENG">Check your billing address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_billing_address</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Lieferadresse prüfen</VariableLocalized>
+                <VariableLocalized iso="ENG">Check your shipping address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_shipping_address</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Adresse prüfen</VariableLocalized>
+                <VariableLocalized iso="ENG">Validate address</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_button_text</Name>
+            </Variable>
+
+            <Variable>
+                <VariableLocalized iso="GER">Die E-Mail Adresse scheint nicht korrekt zu sein.</VariableLocalized>
+                <VariableLocalized iso="ENG">The email address does not seem to be correct.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_email_not_correct</Name>
+            </Variable>
+
+            <Variable>
+                <VariableLocalized iso="GER">Das E-Mail Postfach ist nicht erreichbar.</VariableLocalized>
+                <VariableLocalized iso="ENG">The email inbox cannot be reached.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_email_cant_receive</Name>
+            </Variable>
+
+            <Variable>
+                <VariableLocalized iso="GER">Prüfen Sie die Schreibweise.</VariableLocalized>
+                <VariableLocalized iso="ENG">Check the spelling</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_email_syntax_error</Name>
+            </Variable>
+
+            <Variable>
+                <VariableLocalized iso="GER">Die E-Mail Adresse existiert nicht. Prüfen Sie die Schreibweise.</VariableLocalized>
+                <VariableLocalized iso="ENG">The email address does not exist. Check the spelling.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_email_no_mx</Name>
+            </Variable>
+
+            <Variable>
+                <VariableLocalized iso="GER">Keine Hausnummer enthalten.</VariableLocalized>
+                <VariableLocalized iso="ENG">No house number included.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_error_building_number_is_missing</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Diese Hausnummer wurde nicht gefunden.</VariableLocalized>
+                <VariableLocalized iso="ENG">This house number could not be found.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_error_building_number_not_found</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Schreibweise der Straße ist fehlerhaft.</VariableLocalized>
+                <VariableLocalized iso="ENG">The spelling of the street is incorrect.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_error_street_name_needs_correction</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Schreibweise des Ortes ist fehlerhaft.</VariableLocalized>
+                <VariableLocalized iso="ENG">The spelling of the locality is incorrect.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_error_locality_needs_correction</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die PLZ ist ungültig.</VariableLocalized>
+                <VariableLocalized iso="ENG">The postal code is invalid.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_error_postal_code_needs_correction</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die eingegebene Adresse wurde in einem anderen Land gefunden.</VariableLocalized>
+                <VariableLocalized iso="ENG">The entered address was found in another country.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_status_error_country_code_needs_correction</Name>
+            </Variable>
+        </Locales>
+        <Adminmenu>
+            <Settingslink sort="0">
+                <Name>API</Name>
+                <Setting type="none" initialValue="" sort="0" conf="Y">
+                    <Name>Hidden Setting</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_hidden</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="" sort="1" conf="Y">
+                    <Name>API Schlüssel</Name>
+                    <Description>Den API Key kannst du entweder über die Website von Endereco (www.endereco.de) eine Anfrage erstellen oder über eine E-Mail an info@endereco.de anfragen.</Description>
+                    <ValueName>endereco_jtl5_client_api_key</ValueName>
+                </Setting>
+                <Setting type="url" initialValue="https://endereco-service.de/rpc/v1" sort="2" conf="Y">
+                    <Name>Service URL</Name>
+                    <Description>Hier sollte nur die Live URL in den ausgelieferten Modulen hinterlegt werden.</Description>
+                    <ValueName>endereco_jtl5_client_remote_url</ValueName>
+                </Setting>
+            </Settingslink>
+
+            <Settingslink sort="10">
+                <Name>Address-Management Service</Name>
+                <Setting type="checkbox" initialValue="on" sort="4" conf="Y">
+                    <Name>Adressprüfung und Eingabe-Assistent aktivieren</Name>
+                    <Description>Mit dieser Einstellung wird bestimmt, ob der die Adressprüfung und Eingabe-Assistent im Frontend ausgeführt werden sollen. Ist sie inaktiv, so werden während der Eingabe keine Adressen geprüft.</Description>
+                    <ValueName>endereco_jtl5_client_ams_active</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="on" sort="6" conf="Y">
+                    <Name>Bestandskunden prüfen</Name>
+                    <Description>Bestandskunden, die noch nicht geprüft wurden, werden im Checkout automatisch geprüft. Falls die Adresse korrekturbedürftig ist, bekommen die Bestandskunden im letzten Schritt des Checkouts ein Korrekturfenster zu sehen.</Description>
+                    <ValueName>endereco_jtl5_client_check_existing</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="" sort="8" conf="Y">
+                    <Name>PayPal Express Checkout Adressen prüfen (BETA)</Name>
+                    <Description>Kundenadressen, die von PayPal Express Checkout kommen, werden mit dieser Funktion auch geprüft.</Description>
+                    <ValueName>endereco_jtl5_client_check_paypal_express</ValueName>
+                </Setting>
+            </Settingslink>
+
+            <Settingslink sort="20">
+                <Name>Hinweise für WaWi</Name>
+                <Setting type="checkbox" initialValue="" sort="10" conf="Y">
+                    <Name>Ergebnis der Adressprüfung ins Kommetarfeld der Bestellung schreiben</Name>
+                    <ValueName>endereco_jtl5_client_ams_to_comment</ValueName>
+                    <Description>Der Ergebnis der Prüfung wird interpretiert und in lesbarer Form im Kommetarfeld der Bestellung gespeichert. Später ist dieser Kommentar in der WaWi sichtbar.</Description>
+                </Setting>
+                <Setting type="text" initialValue="Lieferadresse ist korrekt. Label kann generiert werden. " sort="20" conf="Y">
+                    <Name>Adresse ist 100% korrekt. (address_correct)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_address_correct</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Lieferadresse ist korrekturbedürftig. Siehe Korrekturvorschlag. " sort="30" conf="Y">
+                    <Name>Adresse hat Fehler oder nicht normierte Schreibweise. (address_needs_correction)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_address_needs_correction</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Lieferadresse ist nicht korrigierbar. Die Hausnummer liegt nicht im bekannten Bereich. Bitte den Käufer kontaktieren. " sort="40" conf="Y">
+                    <Name>Hausnummer liegt außerhalb des bekannten Bereichs. (building_number_not_found)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_building_number_not_found</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Lieferadresse ist nicht korrigierbar. Die Hausnummer fehlt. Bitte den Käufer kontaktieren. " sort="50" conf="Y">
+                    <Name>Hausnummer fehlt oder wurde im falschen Feld übermittelt. (building_number_is_missing)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_building_number_is_missing</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Lieferadresse konnte nicht verifiziert werden. Möglicher Betrugsversuch. Bitte sorgfältig prüfen und den Käufer kontaktieren. " sort="60" conf="Y">
+                    <Name>Adresse konnte nicht verifiziert werden. (address_not_found)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_address_not_found</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Lieferadresse ist mehrdeutig. Bitte den Käufer kontaktieren. " sort="70" conf="Y">
+                    <Name>Die Adresse ist fehlerhaft, nach der Korrektur gibt es aber mehrere gleichwertige Varianten. (address_multiple_variants)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_address_multiple_variants</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Bestätigt durch den Käufer. " sort="80" conf="Y">
+                    <Name>Der Käufer hat diese Adresse im Adressmodal von Endereco ausgewählt. (address_selected_by_customer)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_address_selected_by_customer</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Korrektur wurde automatisch übernommen. " sort="90" conf="Y">
+                    <Name>Kleinkorrektur, die automatisch übernommen wurde. (address_selected_automatically)</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_address_selected_automatically</ValueName>
+                </Setting>
+            </Settingslink>
+
+            <Settingslink sort="30">
+                <Name>E-Mail Service</Name>
+                <Setting type="checkbox" initialValue="on" sort="11" conf="Y">
+                    <Name>E-Mail Adressprüfung aktivieren</Name>
+                    <Description>Hiermit wird bestimmt, ob die E-Mail Adresse geprüft werden soll. Wir prüfen die Schreibweise (Syntax) der E-Mail, den Host und ob die E-Mailadresse tatsächlich existiert. Zusätzlich wird überprüft ob E-Mails zustellbar sind.</Description>
+                    <ValueName>endereco_jtl5_client_es_active</ValueName>
+                </Setting>
+                <Setting type="none" initialValue="on" sort="11" conf="Y">
+                    <Name>E-Mail Statusmeldungen anzeigen</Name>
+                    <Description>Diese Einstellung bestimmt, ob unterhalb des E-Mail-Eingabefeldes die Fehlermeldungen in Textform angezeigt werden sollen.</Description>
+                    <ValueName>endereco_jtl5_client_show_email_status</ValueName>
+                </Setting>
+            </Settingslink>
+
+            <Settingslink sort="40">
+                <Name>Person Service</Name>
+                <Setting type="checkbox" initialValue="on" sort="13" conf="Y">
+                    <Name>Anredeprüfung basierend auf dem Vornamen aktivieren und die Anrede automatisch setzen</Name>
+                    <Description>Wenn nach der Eingabe des Vornamens keine Anrede ausgewählt ist und der Vorname einem Geschlecht eindeutig zugeordnet werden kann, dann setzen wir die Anrede. Ansonsten markieren wir die Anrede als richtig (grün) oder möglicherweise fehlerhaft (orange).</Description>
+                    <ValueName>endereco_jtl5_client_ps_active</ValueName>
+                </Setting>
+            </Settingslink>
+
+            <Settingslink sort="50">
+                <Name>UI/UX (User Interface)</Name>
+                <Setting type="checkbox" initialValue="on" sort="10" conf="Y">
+                    <Name>Standard-CSS nutzen</Name>
+                    <Description>Unser Modul liefert im Standardfall alle benötigte Styles. Falls man diese jedoch wesentlich überarbeiten möchte, kann man mit dieser Einstellung die Styles deaktivieren. Dadurch entstehen später keine CSS-Konflikte.</Description>
+                    <ValueName>endereco_jtl5_client_use_standart_css</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="on" sort="20" conf="Y">
+                    <Name>Das Schließen des Korrekturfensters erlauben</Name>
+                    <Description>Bestimmt, ob das Korrekturfenster ohne einer Auswahl geschlossen werden kann.</Description>
+                    <ValueName>endereco_jtl5_client_allow_close</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="" sort="30" conf="Y">
+                    <Name>Kunde muss eine korrekturbedürftige Adresse mit einer Checkbox bestätigen</Name>
+                    <Description>Falls ein Kunde auf seiner fehlerhaften Schreibweise der Adresse besteht, muss er davor mit einer Checkbox bestätigen, dass seine Adresse -- so wie sie geschrieben -- ist zustellbar ist.</Description>
+                    <ValueName>endereco_jtl5_client_confirm_with_checkbox</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="on" sort="40" conf="Y">
+                    <Name>Das Absenden des Formulars nach der Adressauswahl fortsetzen</Name>
+                    <Description>Mit dieser Einstellung wird bestimmt, ob nach der Auswahl und Übernahme einer Adresse das Absenden der Form fortgesetzt wird oder ob der Nutzer noch mal auf "Absenden" klicken muss.</Description>
+                    <ValueName>endereco_jtl5_client_resume_submit</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="on" sort="50" conf="Y">
+                    <Name>Felder bei nur einem verbleibenden Adressvorschlag automatisch ausfüllen</Name>
+                    <Description>Wenn während der Eingabe von Postleitzahl, Ort oder der Straße die Eingabe eindeutig ist (nur ein Vorschlag), wird diese Eingabe in das Eingabefeld automatisch übernommen und die Eingabe für 1 Sekunde blockiert, damit der Nutzer es merken kann. Löscht der Nutzer seine Eingabe, wird der SmartAutocomplete für seine Session deaktiviert.</Description>
+                    <ValueName>endereco_jtl5_client_smart_fill</ValueName>
+                </Setting>
+            </Settingslink>
+
+            <Settingslink sort="60">
+                <Name>Erweiterte Einstellungen</Name>
+                <Setting type="checkbox" initialValue="on" sort="20" conf="Y">
+                    <Name>Adressprüfung beim Absenden des Formulars auslösen</Name>
+                    <Description>Über diese Einstellung wird bestimmt, dass beim Klicken auf "Absenden" oder betätigen der Enter-Taste die Adresse geprüft werden soll. Diese Funktion kann man deaktivieren, wenn man programmiertechnisch den Zeitpunkt der Prüfung selber steuern möchte.</Description>
+                    <ValueName>endereco_jtl5_client_onsubmit_trigger</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="on" sort="21" conf="Y">
+                    <Name>Adressprüfung sofort nach verlassen des Hausnummern Feldes auslösen</Name>
+                    <Description>Ist die Funktion aktiv, wird die Adressprüfung sofort nach Eingabe der Adresse angestoßen. Ist die deaktiviert, erfolg die Prüfung beim Klick auf den "Weiter" Button.</Description>
+                    <ValueName>endereco_jtl5_client_onblur_trigger</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="" sort="23" conf="Y">
+                    <Name>Debuginformationen in der Browserkonsole ausgeben</Name>
+                    <Description>Hierüber bestimmt man, ob das Modul die Debuginformation in der Browser Konsole ausgibt. Nützlich für Debugzwecke.</Description>
+                    <ValueName>endereco_jtl5_client_show_debug_info</ValueName>
+                </Setting>
+            </Settingslink>
+        </Adminmenu>
+    </Install>
+</jtlshopplugin>
