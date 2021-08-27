@@ -175,6 +175,9 @@ class EnderecoService {
                 $return->enderecoamsts = $ts;
                 $return->enderecoamsstatus = $statuses;
                 $return->enderecoamspredictions = $predictions;
+
+                // Send doAccounting and doConversion.
+                $this->doAccountings([$sessionId]);
             }
         } catch(\Exception $e) {
             // TODO: log error
@@ -186,7 +189,7 @@ class EnderecoService {
     public function doAccountings($sessionIds) {
 
         // Get sessionids.
-        if (!$sessionIds) {
+        if (empty($sessionIds)) {
             return;
         }
 

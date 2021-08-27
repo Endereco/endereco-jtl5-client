@@ -22,6 +22,24 @@
                     addressPredictions: 'enderecodeliveryamspredictions',
                     additionalInfo: 'register[shipping_address][adresszusatz]',
                 }
+            },
+            function(EAO) {
+
+                // Compatibility issue with DHL Wunschpaket.
+                if (document.querySelector('select#kLieferadresse')) {
+                    document.querySelector('select#kLieferadresse').addEventListener('change', function() {
+                        var $attr = document.querySelector('select#kLieferadresse').selectedOptions[0].getAttribute('data-jtlpack')
+                        if ('-2' === $attr) {
+                            EAO.addressType = 'packstation';
+                            EAO.street = "Packstation";
+                        } else if('-3' === $attr) {
+                            EAO.addressType = 'postoffice';
+                            EAO.street = "Postfiliale";
+                        } else {
+                            EAO.addressType = 'shipping_address';
+                        }
+                    })
+                }
             }
         )
         enderecoInitPS(

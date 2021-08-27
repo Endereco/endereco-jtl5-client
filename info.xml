@@ -5,10 +5,10 @@
     <Author>Ilja Weber</Author>
     <URL>https://www.endereco.de</URL>
     <PluginID>endereco_jtl5_client</PluginID>
-    <XMLVersion>100</XMLVersion>
+    <XMLVersion>101</XMLVersion>
     <MinShopVersion>5.0.0</MinShopVersion>
     <CreateDate>2021-03-24</CreateDate>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Install>
         <FlushTags>CACHING_GROUP_TEMPLATE</FlushTags>
         <Locales>
@@ -138,13 +138,13 @@
             </Variable>
 
             <Variable>
-                <VariableLocalized iso="GER">Keine Hausnummer enthalten.</VariableLocalized>
+                <VariableLocalized iso="GER">Keine Hausnummer eingegeben.</VariableLocalized>
                 <VariableLocalized iso="ENG">No house number included.</VariableLocalized>
                 <Description></Description>
                 <Name>endereco_jtl5_client_status_error_building_number_is_missing</Name>
             </Variable>
             <Variable>
-                <VariableLocalized iso="GER">Diese Hausnummer wurde nicht gefunden.</VariableLocalized>
+                <VariableLocalized iso="GER">Diese Hausnummer ist unbekannt.</VariableLocalized>
                 <VariableLocalized iso="ENG">This house number could not be found.</VariableLocalized>
                 <Description></Description>
                 <Name>endereco_jtl5_client_status_error_building_number_not_found</Name>
@@ -216,17 +216,17 @@
             <Settingslink sort="20">
                 <Name>Hinweise für WaWi</Name>
                 <Setting type="checkbox" initialValue="" sort="10" conf="Y">
-                    <Name>Ergebnis der Adressprüfung ins Kommetarfeld der Bestellung schreiben</Name>
+                    <Name>Ergebnis der Adressprüfung in das Kommetarfeld der Bestellung schreiben</Name>
                     <ValueName>endereco_jtl5_client_ams_to_comment</ValueName>
-                    <Description>Der Ergebnis der Prüfung wird interpretiert und in lesbarer Form im Kommetarfeld der Bestellung gespeichert. Später ist dieser Kommentar in der WaWi sichtbar.</Description>
+                    <Description>Die Ergebnisse der Prüfungen werden interpretiert und in lesbarer Form in dem Kommetarfeld der Bestellung gespeichert. Später ist dieser Kommentar in der WaWi sichtbar.</Description>
                 </Setting>
                 <Setting type="text" initialValue="Lieferadresse ist korrekt. Label kann generiert werden. " sort="20" conf="Y">
                     <Name>Adresse ist 100% korrekt. (address_correct)</Name>
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_correct</ValueName>
                 </Setting>
-                <Setting type="text" initialValue="Lieferadresse ist korrekturbedürftig. Siehe Korrekturvorschlag. " sort="30" conf="Y">
-                    <Name>Adresse hat Fehler oder nicht normierte Schreibweise. (address_needs_correction)</Name>
+                <Setting type="text" initialValue="Lieferadresse ist korrekturbedürftig. " sort="30" conf="Y">
+                    <Name>Adresse hat Fehler oder eine nicht normierte Schreibweise. (address_needs_correction)</Name>
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_needs_correction</ValueName>
                 </Setting>
@@ -240,7 +240,7 @@
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_building_number_is_missing</ValueName>
                 </Setting>
-                <Setting type="text" initialValue="Lieferadresse konnte nicht verifiziert werden. Möglicher Betrugsversuch. Bitte sorgfältig prüfen und den Käufer kontaktieren. " sort="60" conf="Y">
+                <Setting type="text" initialValue="Lieferadresse konnte nicht verifiziert werden. Bitte sorgfältig prüfen und ggf. den Käufer kontaktieren. " sort="60" conf="Y">
                     <Name>Adresse konnte nicht verifiziert werden. (address_not_found)</Name>
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_not_found</ValueName>
@@ -250,13 +250,13 @@
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_multiple_variants</ValueName>
                 </Setting>
-                <Setting type="text" initialValue="Bestätigt durch den Käufer. " sort="80" conf="Y">
+                <Setting type="text" initialValue="Adresse bestätigt durch den Käufer. " sort="80" conf="Y">
                     <Name>Der Käufer hat diese Adresse im Adressmodal von Endereco ausgewählt. (address_selected_by_customer)</Name>
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_selected_by_customer</ValueName>
                 </Setting>
-                <Setting type="text" initialValue="Korrektur wurde automatisch übernommen. " sort="90" conf="Y">
-                    <Name>Kleinkorrektur, die automatisch übernommen wurde. (address_selected_automatically)</Name>
+                <Setting type="text" initialValue="Adresskorrektur wurde automatisch übernommen. " sort="90" conf="Y">
+                    <Name>Kleine Korrektur, die automatisch übernommen wurde. (address_selected_automatically)</Name>
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_selected_automatically</ValueName>
                 </Setting>
