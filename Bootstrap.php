@@ -11,6 +11,7 @@ use JTL\Customer\DataHistory;
 use JTL\Plugin\Bootstrapper;
 use JTL\Shop;
 use JTL\Smarty\JTLSmarty;
+use JTL\phpQuery\phpQuery;
 use JTL\Events\Dispatcher;
 use JTL\Template\Model;
 use JTL\Session\Frontend;
@@ -32,38 +33,112 @@ class Bootstrap extends Bootstrapper
         $plugin = $this->getPlugin();
         $EnderecoService = new EnderecoService($plugin);
 
+        $dispatcher->listen('shop.hook.' . \HOOK_SMARTY_OUTPUTFILTER, static function (array $args) use ($plugin) {
+            if (!empty($plugin->getConfig()->getValue('endereco_jtl5_client_api_key'))) {
+
+                // Set variables.
+                $smarty = $args['smarty'];
+                $template = Shop::Container()->getTemplateService()->getActiveTemplate();
+                // Get country mapping.
+                $countires = Shop::Container()->getDB()->queryPrepared(
+                    "SELECT *
+FROM `tland`",
+                    [],
+                    2
+                );
+                $countryMapping = [];
+                foreach ($countires as $country) {
+                    if (!empty($_SESSION['cISOSprache']) && 'ger' === $_SESSION['cISOSprache']) {
+                        $countryMapping[$country->cISO] = $country->cDeutsch;
+                    } else {
+                        $countryMapping[$country->cISO] = $country->cEnglisch;
+                    }
+                }
+
+                $smarty->assign('endereco_theme_name', strtolower($template->getDir()))
+                    ->assign('endereco_plugin_config', $plugin->getConfig())
+                    ->assign('endereco_locales', $plugin->getLocalization())
+                    ->assign('endereco_plugin_ver', $plugin->getMeta()->getVersion())
+                    ->assign('endereco_api_url', URL_SHOP . '/io.php?io=endereco_request')
+                    ->assign('endereco_jtl5_client_country_mapping', str_replace('\'', '\\\'', json_encode($countryMapping)));
+
+                $file = __DIR__ . '/smarty_templates/config.tpl';
+                $html = $smarty->fetch($file);
+                pq('head')->append($html);
+
+                // Add js loader in footer.
+                $file = __DIR__ . '/smarty_templates/load_js.tpl';
+                $html = $smarty->fetch($file);
+                pq('body')->append($html);
+
+                // Add init calls to billing form.
+                if (pq('[name="land"]')->length && pq('[name="strasse"]')->length) {
+                    if (!empty($_SESSION['EnderecoBillingAddressMeta'])) {
+                        // Load to smarty.
+                        $smarty->assign('endereco_amsts', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'])
+                            ->assign('endereco_amsstatus', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
+                            ->assign('endereco_amspredictions', $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']);
+                    }
+                    $file = __DIR__ . '/smarty_templates/billing_ams_initiation.tpl';
+                    $html = $smarty->fetch($file);
+                    pq('[name="strasse"]')[0]->after($html);
+                }
+
+                // Add init calls to shipping.
+                if (pq('[name="register[shipping_address][land]"]')->length && pq('[name="register[shipping_address][strasse]"]')->length) {
+                    if (!empty($_SESSION['EnderecoShippingAddressMeta'])) {
+                        // Load to smarty.
+                        $smarty->assign('endereco_delivery_amsts', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'])
+                            ->assign('endereco_delivery_amsstatus', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
+                            ->assign('endereco_delivery_amspredictions', $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']);
+                    }
+                    $file = __DIR__ . '/smarty_templates/shipping_ams_initiation.tpl';
+                    $html = $smarty->fetch($file);
+                    pq('[name="register[shipping_address][strasse]"]')[0]->after($html);
+                }
+
+                // Add fake form in checkout.
+                global $step;
+                if (PAGE_BESTELLVORGANG === Shop::getPageType()
+                    && 'Bestaetigung' === $step
+                ) {
+                    // Set smarty values for billing.
+                    $smarty->assign('endereco_billing_countrycode', $_SESSION['Kunde']->cLand)
+                        ->assign('endereco_billing_postal_code', $_SESSION['Kunde']->cPLZ)
+                        ->assign('endereco_billing_locality', $_SESSION['Kunde']->cOrt)
+                        ->assign('endereco_billing_street_name', $_SESSION['Kunde']->cStrasse)
+                        ->assign('endereco_billing_building_number', $_SESSION['Kunde']->cHausnummer)
+                        ->assign('endereco_billing_addinfo', $_SESSION['Kunde']->cAdressZusatz)
+                        ->assign('endereco_billing_ts', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'])
+                        ->assign('endereco_billing_status', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
+                        ->assign('endereco_billing_predictions', $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']);
+
+                    $smarty->assign('endereco_shipping_countrycode', $_SESSION['Lieferadresse']->cLand)
+                        ->assign('endereco_shipping_postal_code', $_SESSION['Lieferadresse']->cPLZ)
+                        ->assign('endereco_shipping_locality', $_SESSION['Lieferadresse']->cOrt)
+                        ->assign('endereco_shipping_street_name', $_SESSION['Lieferadresse']->cStrasse)
+                        ->assign('endereco_shipping_building_number', $_SESSION['Lieferadresse']->cHausnummer)
+                        ->assign('endereco_shipping_addinfo', $_SESSION['Lieferadresse']->cAdressZusatz)
+                        ->assign('endereco_shipping_ts', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'])
+                        ->assign('endereco_shipping_status', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
+                        ->assign('endereco_shipping_predictions', $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']);
+
+                    $file = __DIR__ . '/smarty_templates/kafe_address.tpl';
+                    $html = $smarty->fetch($file);
+                    pq('body')->prepend($html);
+                }
+            }
+        });
 
         // Set config values.
         $dispatcher->listen('shop.hook.' . \HOOK_SMARTY_INC, static function (array $args) use ($plugin) {
-            $smarty = $args['smarty'];
-            $template = Shop::Container()->getTemplateService()->getActiveTemplate();
-            // Get country mapping.
-            $countires = Shop::Container()->getDB()->queryPrepared(
-                "SELECT *
-FROM `tland`",
-                [],
-                2
-            );
-            $countryMapping = [];
-            foreach ($countires as $country) {
-                if (!empty($_SESSION['cISOSprache']) && 'ger' === $_SESSION['cISOSprache']) {
-                    $countryMapping[$country->cISO] = $country->cDeutsch;
-                } else {
-                    $countryMapping[$country->cISO] = $country->cEnglisch;
-                }
-            }
 
-            $smarty->assign('endereco_theme_name', strtolower($template->getDir()))
-                ->assign('endereco_plugin_config', $plugin->getConfig())
-                ->assign('endereco_locales', $plugin->getLocalization())
-                ->assign('endereco_api_url', URL_SHOP . '/io.php?io=endereco_request')
-                ->assign('endereco_jtl5_client_country_mapping', str_replace('\'', '\\\'', json_encode($countryMapping)));
         });
-
 
         // Registration hook.
         $dispatcher->listen('shop.hook.' . \HOOK_REGISTRIEREN_PAGE, static function (array $args) use ($EnderecoService) {
-            //die("test");
+            unset($_SESSION['EnderecoBillingAddressMeta']);
+            unset($_SESSION['EnderecoShippingAddressMeta']);
         });
 
         // Registration hook.
@@ -178,13 +253,6 @@ FROM `tland`",
                         ];
                     }
                 }
-
-                if (!empty($_SESSION['EnderecoBillingAddressMeta'])) {
-                    // Load to smarty.
-                    Shop::Smarty()->assign('endereco_amsts', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'])
-                        ->assign('endereco_amsstatus', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
-                        ->assign('endereco_amspredictions', $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']);
-                }
             }
 
             if ('POST' === $_SERVER['REQUEST_METHOD'] && !empty($_GET['editRechnungsadresse'])) {
@@ -221,10 +289,6 @@ FROM `tland`",
                         1
                     );
                 }
-                // Load to smarty.
-                Shop::Smarty()->assign('endereco_amsts', $ts)
-                    ->assign('endereco_amsstatus', $statuses)
-                    ->assign('endereco_amspredictions', $predictions);
 
                 // Load to session.
                 $_SESSION['EnderecoBillingAddressMeta'] = [
@@ -281,16 +345,7 @@ FROM `tland`",
                 }
             }
 
-            // Set smarty values.
-            Shop::Smarty()->assign('endereco_billing_countrycode', $_SESSION['Kunde']->cLand)
-                ->assign('endereco_billing_postal_code', $_SESSION['Kunde']->cPLZ)
-                ->assign('endereco_billing_locality', $_SESSION['Kunde']->cOrt)
-                ->assign('endereco_billing_street_name', $_SESSION['Kunde']->cStrasse)
-                ->assign('endereco_billing_building_number', $_SESSION['Kunde']->cHausnummer)
-                ->assign('endereco_billing_addinfo', $_SESSION['Kunde']->cAdressZusatz)
-                ->assign('endereco_billing_ts', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'])
-                ->assign('endereco_billing_status', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
-                ->assign('endereco_billing_predictions', $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']);
+            $_SESSION['EnderecoIncludeFakeAddress'] = true;
 
             if (!empty($_SESSION['Lieferadresse']->kLieferadresse)) {
                 // If shipping is different.
@@ -324,16 +379,6 @@ FROM `tland`",
                         }
                     }
                 }
-
-                Shop::Smarty()->assign('endereco_shipping_countrycode', $_SESSION['Lieferadresse']->cLand)
-                    ->assign('endereco_shipping_postal_code', $_SESSION['Lieferadresse']->cPLZ)
-                    ->assign('endereco_shipping_locality', $_SESSION['Lieferadresse']->cOrt)
-                    ->assign('endereco_shipping_street_name', $_SESSION['Lieferadresse']->cStrasse)
-                    ->assign('endereco_shipping_building_number', $_SESSION['Lieferadresse']->cHausnummer)
-                    ->assign('endereco_shipping_addinfo', $_SESSION['Lieferadresse']->cAdressZusatz)
-                    ->assign('endereco_shipping_ts', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'])
-                    ->assign('endereco_shipping_status', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
-                    ->assign('endereco_shipping_predictions', $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']);
             }
         });
 
@@ -360,18 +405,6 @@ FROM `tland`",
                         'enderecoamspredictions' => $addressMeta->enderecoamspredictions,
                     ];
                 }
-
-                Shop::Smarty()->assign('endereco_amsts', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'])
-                    ->assign('endereco_amsstatus', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
-                    ->assign('endereco_amspredictions', $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']);
-
-                // Load shipping status.
-                if (!$_SESSION['Lieferadresse']->kLieferadresse) {
-                    Shop::Smarty()->assign('endereco_delivery_amsts', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'])
-                        ->assign('endereco_delivery_amsstatus', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
-                        ->assign('endereco_delivery_amspredictions', $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']);
-                }
-
             }
         });
 
