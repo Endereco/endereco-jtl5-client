@@ -1,6 +1,6 @@
 import Promise from 'promise-polyfill';
 import merge from 'lodash.merge';
-import EnderecoIntegrator from '../js-sdk/modules/integrator'; // Version 1.1.0-rc.3
+import EnderecoIntegrator from '../js-sdk/modules/integrator'; // Version 1.1.1
 import css from './endereco.scss';
 
 if ('NodeList' in window && !NodeList.prototype.forEach) {

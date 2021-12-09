@@ -19,6 +19,8 @@ use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 
 class Bootstrap extends Bootstrapper
 {
+    private static $_bootStrIncluded = false;
+
     /**
      * @inheritdoc
      */
@@ -38,38 +40,6 @@ class Bootstrap extends Bootstrapper
 
                 // Set variables.
                 $smarty = $args['smarty'];
-                $template = Shop::Container()->getTemplateService()->getActiveTemplate();
-                // Get country mapping.
-                $countires = Shop::Container()->getDB()->queryPrepared(
-                    "SELECT *
-FROM `tland`",
-                    [],
-                    2
-                );
-                $countryMapping = [];
-                foreach ($countires as $country) {
-                    if (!empty($_SESSION['cISOSprache']) && 'ger' === $_SESSION['cISOSprache']) {
-                        $countryMapping[$country->cISO] = $country->cDeutsch;
-                    } else {
-                        $countryMapping[$country->cISO] = $country->cEnglisch;
-                    }
-                }
-
-                $smarty->assign('endereco_theme_name', strtolower($template->getDir()))
-                    ->assign('endereco_plugin_config', $plugin->getConfig())
-                    ->assign('endereco_locales', $plugin->getLocalization())
-                    ->assign('endereco_plugin_ver', $plugin->getMeta()->getVersion())
-                    ->assign('endereco_api_url', URL_SHOP . '/io.php?io=endereco_request')
-                    ->assign('endereco_jtl5_client_country_mapping', str_replace('\'', '\\\'', json_encode($countryMapping)));
-
-                $file = __DIR__ . '/smarty_templates/config.tpl';
-                $html = $smarty->fetch($file);
-                pq('head')->append($html);
-
-                // Add js loader in footer.
-                $file = __DIR__ . '/smarty_templates/load_js.tpl';
-                $html = $smarty->fetch($file);
-                pq('body')->append($html);
 
                 // Add init calls to billing form.
                 if (pq('[name="land"]')->length && pq('[name="strasse"]')->length) {
@@ -82,6 +52,8 @@ FROM `tland`",
                     $file = __DIR__ . '/smarty_templates/billing_ams_initiation.tpl';
                     $html = $smarty->fetch($file);
                     pq('[name="strasse"]')[0]->after($html);
+
+                    self::_includeBoots($smarty, $plugin);
                 }
 
                 // Add init calls to shipping.
@@ -95,6 +67,8 @@ FROM `tland`",
                     $file = __DIR__ . '/smarty_templates/shipping_ams_initiation.tpl';
                     $html = $smarty->fetch($file);
                     pq('[name="register[shipping_address][strasse]"]')[0]->after($html);
+
+                    self::_includeBoots($smarty, $plugin);
                 }
 
                 // Add fake form in checkout.
@@ -126,6 +100,8 @@ FROM `tland`",
                     $file = __DIR__ . '/smarty_templates/kafe_address.tpl';
                     $html = $smarty->fetch($file);
                     pq('body')->prepend($html);
+
+                    self::_includeBoots($smarty, $plugin);
                 }
             }
         });
@@ -769,6 +745,60 @@ FROM `tland`",
             unset($_SESSION['EnderecoBillingAddressMeta']);
         });
 
+
+    }
+
+    /**
+     * Includes endereco js and config to the page.
+     *
+     * @param Object $smarty Smarty object.
+     * @param Object $plugin Plugin object.
+     *
+     * @return void
+     */
+    private static function _includeBoots($smarty, $plugin) {
+
+        if (!self::$_bootStrIncluded) {
+            // Get template name.
+            $template = Shop::Container()->getTemplateService()->getActiveTemplate();
+            // Get country mapping.
+            $countires = Shop::Container()->getDB()->queryPrepared(
+                "SELECT *
+FROM `tland`",
+                [],
+                2
+            );
+            $countryMapping = [];
+            foreach ($countires as $country) {
+                if (!empty($_SESSION['cISOSprache']) && 'ger' === $_SESSION['cISOSprache']) {
+                    $countryMapping[$country->cISO] = $country->cDeutsch;
+                } else {
+                    $countryMapping[$country->cISO] = $country->cEnglisch;
+                }
+            }
+
+            $pluginIOPath = URL_SHOP . '/plugins/endereco_jtl5_client/io.php';
+            $agentInfo = "Endereco JTL5 Client v" . $plugin->getMeta()->getVersion();
+
+            $smarty->assign('endereco_theme_name', strtolower($template->getDir()))
+                ->assign('endereco_plugin_config', $plugin->getConfig())
+                ->assign('endereco_locales', $plugin->getLocalization())
+                ->assign('endereco_plugin_ver', $plugin->getMeta()->getVersion())
+                ->assign('endereco_agent_info', $agentInfo)
+                ->assign('endereco_api_url', $pluginIOPath)
+                ->assign('endereco_jtl5_client_country_mapping', str_replace('\'', '\\\'', json_encode($countryMapping)));
+
+            $file = __DIR__ . '/smarty_templates/config.tpl';
+            $html = $smarty->fetch($file);
+            pq('head')->prepend($html);
+
+            // Add js loader in footer.
+            $file = __DIR__ . '/smarty_templates/load_js.tpl';
+            $html = $smarty->fetch($file);
+            pq('body')->append($html);
+
+            self::$_bootStrIncluded = true;
+        }
 
     }
 

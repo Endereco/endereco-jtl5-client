@@ -50,7 +50,7 @@
             window.EnderecoIntegrator.config.apiUrl = '{$endereco_api_url}';
             window.EnderecoIntegrator.config.apiKey = '{$endereco_plugin_config->getValue('endereco_jtl5_client_api_key')}';
             window.EnderecoIntegrator.config.remoteApiUrl = '{$endereco_plugin_config->getValue('endereco_jtl5_client_remote_url')}';
-
+            window.EnderecoIntegrator.config.agentName = '{$endereco_agent_info}';
             window.EnderecoIntegrator.config.showDebugInfo = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_show_debug_info')}');
             window.EnderecoIntegrator.config.trigger.onblur = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_onblur_trigger')}');
             window.EnderecoIntegrator.config.trigger.onsubmit = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_onsubmit_trigger')}');
