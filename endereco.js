@@ -1,6 +1,6 @@
 import Promise from 'promise-polyfill';
 import merge from 'lodash.merge';
-import EnderecoIntegrator from '../js-sdk/modules/integrator'; // Version 1.1.1
+import EnderecoIntegrator from './node_modules/@endereco/js-sdk/modules/integrator';
 import css from './endereco.scss';
 
 if ('NodeList' in window && !NodeList.prototype.forEach) {
@@ -98,3 +98,9 @@ window.EnderecoIntegrator.waitUntilReady().then( function() {
     }, 100);
 });
 
+var $waitForConfig = setInterval( function() {
+    if(typeof enderecoLoadAMSConfig === 'function'){
+        enderecoLoadAMSConfig();
+        clearInterval($waitForConfig);
+    }
+}, 1);
