@@ -42,7 +42,7 @@ class Bootstrap extends Bootstrapper
                 $smarty = $args['smarty'];
 
                 // Add init calls to billing form.
-                if (pq('[name="land"]')->length && pq('[name="strasse"]')->length) {
+                if (phpQuery::pq('[name="land"]')->length && phpQuery::pq('[name="strasse"]')->length) {
                     if (!empty($_SESSION['EnderecoBillingAddressMeta'])) {
                         // Load to smarty.
                         $smarty->assign('endereco_amsts', $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'])
@@ -51,13 +51,16 @@ class Bootstrap extends Bootstrapper
                     }
                     $file = __DIR__ . '/smarty_templates/billing_ams_initiation.tpl';
                     $html = $smarty->fetch($file);
-                    pq('[name="strasse"]')[0]->after($html);
+
+                    if (1 === phpQuery::pq('[name="strasse"]')->length) {
+                        phpQuery::pq('[name="strasse"]')->after($html);
+                    }
 
                     self::_includeBoots($smarty, $plugin);
                 }
 
                 // Add init calls to shipping.
-                if (pq('[name="register[shipping_address][land]"]')->length && pq('[name="register[shipping_address][strasse]"]')->length) {
+                if (phpQuery::pq('[name="register[shipping_address][land]"]')->length && phpQuery::pq('[name="register[shipping_address][strasse]"]')->length) {
                     if (!empty($_SESSION['EnderecoShippingAddressMeta'])) {
                         // Load to smarty.
                         $smarty->assign('endereco_delivery_amsts', $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'])
@@ -66,7 +69,10 @@ class Bootstrap extends Bootstrapper
                     }
                     $file = __DIR__ . '/smarty_templates/shipping_ams_initiation.tpl';
                     $html = $smarty->fetch($file);
-                    pq('[name="register[shipping_address][strasse]"]')[0]->after($html);
+
+                    if (1 === phpQuery::pq('[name="register[shipping_address][strasse]"]')->length) {
+                        phpQuery::pq('[name="register[shipping_address][strasse]"]')->after($html);
+                    }
 
                     self::_includeBoots($smarty, $plugin);
                 }
@@ -99,7 +105,7 @@ class Bootstrap extends Bootstrapper
 
                     $file = __DIR__ . '/smarty_templates/kafe_address.tpl';
                     $html = $smarty->fetch($file);
-                    pq('body')->prepend($html);
+                    phpQuery::pq('body')->prepend($html);
 
                     self::_includeBoots($smarty, $plugin);
                 }
@@ -790,12 +796,12 @@ FROM `tland`",
 
             $file = __DIR__ . '/smarty_templates/config.tpl';
             $html = $smarty->fetch($file);
-            pq('head')->prepend($html);
+            phpQuery::pq('head')->prepend($html);
 
             // Add js loader in footer.
             $file = __DIR__ . '/smarty_templates/load_js.tpl';
             $html = $smarty->fetch($file);
-            pq('body')->append($html);
+            phpQuery::pq('body')->append($html);
 
             self::$_bootStrIncluded = true;
         }
