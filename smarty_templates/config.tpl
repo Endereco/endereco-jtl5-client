@@ -58,7 +58,7 @@
         window.EnderecoIntegrator.config.ux.checkExisting = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_check_existing')}');
         window.EnderecoIntegrator.config.ux.resumeSubmit = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_resume_submit')}');
         window.EnderecoIntegrator.config.ux.useStandardCss = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_use_standart_css')}');
-        window.EnderecoIntegrator.config.ux.showEmailStatus = false;
+        window.EnderecoIntegrator.config.ux.showEmailStatus = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_show_email_status')}');
         window.EnderecoIntegrator.config.ux.allowCloseModal = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_allow_close')}');
         window.EnderecoIntegrator.config.ux.confirmWithCheckbox = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_confirm_with_checkbox')}');
         window.EnderecoIntegrator.config.ux.changeFieldsOrder = true;

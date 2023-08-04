@@ -31,12 +31,13 @@
         }
     )
     enderecoInitES(
-        '',
+        {
+            email: '#panel-register-form [name="email"]'
+        },
         {
             name: 'billing_email',
-            postfixCollection: {
-                email: '#panel-register-form [name="email"]'
-            }
+            errorContainer: '#container-email-error-messages',
+            errorInsertMode: 'afterbegin'
         }
     )
     {/literal}

@@ -41,6 +41,13 @@ class Bootstrap extends Bootstrapper
                 // Set variables.
                 $smarty = $args['smarty'];
 
+                // Add email error container.
+                if (phpQuery::pq('#panel-register-form [name="email"]')->length) {
+                    phpQuery::pq('#panel-register-form [name="email"]')
+                        ->parent()
+                        ->after('<div id="container-email-error-messages"></div>');
+                }
+
                 // Add init calls to billing form.
                 if (phpQuery::pq('[name="land"]')->length && phpQuery::pq('[name="strasse"]')->length) {
                     if (!empty($_SESSION['EnderecoBillingAddressMeta'])) {
