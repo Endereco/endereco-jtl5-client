@@ -8,7 +8,7 @@
     <XMLVersion>101</XMLVersion>
     <MinShopVersion>5.0.0</MinShopVersion>
     <CreateDate>2021-03-24</CreateDate>
-    <Version>1.0.5</Version>
+    <Version>1.1.0</Version>
     <Install>
         <FlushTags>CACHING_GROUP_TEMPLATE</FlushTags>
         <Locales>
@@ -269,7 +269,7 @@
                     <Description>Hiermit wird bestimmt, ob die E-Mail Adresse geprüft werden soll. Wir prüfen die Schreibweise (Syntax) der E-Mail, den Host und ob die E-Mailadresse tatsächlich existiert. Zusätzlich wird überprüft ob E-Mails zustellbar sind.</Description>
                     <ValueName>endereco_jtl5_client_es_active</ValueName>
                 </Setting>
-                <Setting type="none" initialValue="on" sort="11" conf="Y">
+                <Setting type="checkbox" initialValue="on" sort="12" conf="Y">
                     <Name>E-Mail Statusmeldungen anzeigen</Name>
                     <Description>Diese Einstellung bestimmt, ob unterhalb des E-Mail-Eingabefeldes die Fehlermeldungen in Textform angezeigt werden sollen.</Description>
                     <ValueName>endereco_jtl5_client_show_email_status</ValueName>
