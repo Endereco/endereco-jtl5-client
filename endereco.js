@@ -51,8 +51,8 @@ EnderecoIntegrator.resolvers.countryCodeRead = function(value) {
 }
 EnderecoIntegrator.resolvers.salutationWrite = function(value) {
     var mapping = {
-        'F': 'w',
-        'M': 'm'
+        'f': 'w',
+        'm': 'm'
     } ;
     return new Promise(function(resolve, reject) {
         resolve(mapping[value]);
@@ -60,8 +60,8 @@ EnderecoIntegrator.resolvers.salutationWrite = function(value) {
 }
 EnderecoIntegrator.resolvers.salutationRead = function(value) {
     var mapping = {
-        'w': 'F',
-        'm': 'M'
+        'w': 'f',
+        'm': 'm'
     } ;
     return new Promise(function(resolve, reject) {
         resolve(mapping[value]);
@@ -104,3 +104,15 @@ var $waitForConfig = setInterval( function() {
         clearInterval($waitForConfig);
     }
 }, 1);
+
+EnderecoIntegrator.afterAMSActivation.push( function(EAO) {
+    if (!!EAO.onSubmitUnblock) {
+        EAO.onSubmitUnblock.push(function(AddressObject) {
+            AddressObject.forms.forEach( function(form) {
+                if (form.querySelector('button[type="submit"][disabled]')) {
+                    form.querySelector('button[type="submit"][disabled]').removeAttribute('disabled');
+                }
+            });
+        });
+    }
+});

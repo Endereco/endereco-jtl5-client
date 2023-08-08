@@ -54,13 +54,14 @@
         }
     )
     enderecoInitPS(
-        '',
         {
-            name: 'shipping_person',
-            postfixCollection: {
-                salutation: 'register[shipping_address][anrede]',
-                firstName: 'register[shipping_address][vorname]'
-            }
+            salutation: 'register[shipping_address][anrede]',
+            firstName: 'register[shipping_address][vorname]',
+            lastName: 'register[shipping_address][nachname]',
+            title: 'register[shipping_address][titel]'
+        },
+        {
+            name: 'shipping_person'
         }
     )
     {/literal}

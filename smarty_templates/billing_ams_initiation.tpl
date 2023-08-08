@@ -25,7 +25,12 @@
         }
     )
     enderecoInitPS(
-        '',
+        {
+            salutation: '[name="anrede"]',
+            firstName: '[name="vorname"]',
+            lastName: '[name="nachname"]',
+            title: '[name="titel"]'
+        },
         {
             name: 'billing_person'
         }

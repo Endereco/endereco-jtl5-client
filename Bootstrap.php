@@ -16,6 +16,7 @@ use JTL\Events\Dispatcher;
 use JTL\Template\Model;
 use JTL\Session\Frontend;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
+use JTL\Services\JTL\CryptoServiceInterface;
 
 class Bootstrap extends Bootstrapper
 {
@@ -34,6 +35,7 @@ class Bootstrap extends Bootstrapper
 
         $plugin = $this->getPlugin();
         $EnderecoService = new EnderecoService($plugin);
+        $cryptoService = Shop::Container()->getCryptoService();
 
         $dispatcher->listen('shop.hook.' . \HOOK_SMARTY_OUTPUTFILTER, static function (array $args) use ($plugin) {
             if (!empty($plugin->getConfig()->getValue('endereco_jtl5_client_api_key'))) {
@@ -398,7 +400,7 @@ class Bootstrap extends Bootstrapper
         });
 
         // IO Listener
-        $dispatcher->listen('shop.hook.' . \HOOK_IO_HANDLE_REQUEST, static function (array $args) use ($plugin) {
+        $dispatcher->listen('shop.hook.' . \HOOK_IO_HANDLE_REQUEST, static function (array $args) use ($plugin, $cryptoService) {
             if (('endereco_request' === $_REQUEST['io'])) {
                 if ('GET' === $_SERVER['REQUEST_METHOD']) {
                     die('We expect a POST request here.');
@@ -537,8 +539,8 @@ class Bootstrap extends Bootstrapper
                         foreach ($tlieferadressen as $delivery_address) {
                             $tmp_address = [
                                 'cVorname' => trim($delivery_address['cVorname']),
-                                'cNachname' => trim(entschluesselXTEA($delivery_address['cNachname'])),
-                                'cStrasse' => trim(entschluesselXTEA($delivery_address['cStrasse'])),
+                                'cNachname' => trim($cryptoService->decryptXTEA($delivery_address['cNachname'])),
+                                'cStrasse' => trim($cryptoService->decryptXTEA($delivery_address['cStrasse'])),
                                 'cHausnummer' => trim($delivery_address['cHausnummer']),
                                 'cAdressZusatz' => trim($delivery_address['cAdressZusatz']),
                                 'cPLZ' => trim($delivery_address['cPLZ']),
