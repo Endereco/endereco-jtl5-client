@@ -5,10 +5,11 @@
     <Author>Ilja Weber</Author>
     <URL>https://www.endereco.de</URL>
     <PluginID>endereco_jtl5_client</PluginID>
+    <ExsID>f9cb7819-9dad-4a4f-8aea-fcca10d6b59c</ExsID>
     <XMLVersion>101</XMLVersion>
     <MinShopVersion>5.0.0</MinShopVersion>
     <CreateDate>2021-03-24</CreateDate>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <Install>
         <FlushTags>CACHING_GROUP_TEMPLATE</FlushTags>
         <Locales>
