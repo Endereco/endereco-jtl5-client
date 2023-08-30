@@ -43,9 +43,9 @@ class Bootstrap extends Bootstrapper
                 // Set variables.
                 $smarty = $args['smarty'];
 
-                // Add email error container.
-                if (phpQuery::pq('#panel-register-form [name="email"]')->length) {
-                    phpQuery::pq('#panel-register-form [name="email"]')
+                // Add email error container register.
+                if (phpQuery::pq('#email[type="email"]')->length) {
+                    phpQuery::pq('#email[type="email"]')
                         ->parent()
                         ->after('<div id="container-email-error-messages"></div>');
                 }

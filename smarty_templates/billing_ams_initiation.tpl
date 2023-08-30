@@ -24,6 +24,7 @@
             }
         }
     )
+
     enderecoInitPS(
         {
             salutation: '[name="anrede"]',
@@ -35,15 +36,17 @@
             name: 'billing_person'
         }
     )
+
     enderecoInitES(
         {
-            email: '#panel-register-form [name="email"]'
+            email: '#email[type="email"]'
         },
         {
-            name: 'billing_email',
+            name: 'email',
             errorContainer: '#container-email-error-messages',
             errorInsertMode: 'afterbegin'
         }
     )
+
     {/literal}
 </script>
