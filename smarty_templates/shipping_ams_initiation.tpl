@@ -64,5 +64,16 @@
             name: 'shipping_person'
         }
     )
+
+    enderecoInitES(
+        {
+            email: '[name="register[shipping_address][email]"]'
+        },
+        {
+            name: 'shipping_email',
+            errorContainer: '#container-shipping-email-error-messages',
+            errorInsertMode: 'afterbegin'
+        }
+    )
     {/literal}
 </script>

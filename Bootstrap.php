@@ -50,6 +50,13 @@ class Bootstrap extends Bootstrapper
                         ->after('<div id="container-email-error-messages"></div>');
                 }
 
+                // Add email error container register.
+                if (phpQuery::pq('[name="register[shipping_address][email]"]')->length) {
+                    phpQuery::pq('[name="register[shipping_address][email]"]')
+                        ->parent()
+                        ->after('<div id="container-shipping-email-error-messages"></div>');
+                }
+
                 // Add init calls to billing form.
                 if (phpQuery::pq('[name="land"]')->length && phpQuery::pq('[name="strasse"]')->length) {
                     if (!empty($_SESSION['EnderecoBillingAddressMeta'])) {
