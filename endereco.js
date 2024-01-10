@@ -82,6 +82,7 @@ window.EnderecoIntegrator.waitUntilReady().then( function() {
             $('[name="ort"]')[0].classList.contains('tt-input')
         ) {
             $('.city_input').typeahead('destroy');
+            $('.city_input').removeClass('bg-typeahead-fix');
             clearInterval($removeTypeahead);
         }
     }, 100);
@@ -93,6 +94,7 @@ window.EnderecoIntegrator.waitUntilReady().then( function() {
             $('[name="register[shipping_address][ort]"]').typeahead
         ) {
             $('[name="register[shipping_address][ort]"]').typeahead('destroy');
+            $('[name="register[shipping_address][ort]"]').removeClass('bg-typeahead-fix');
             clearInterval($removeTypeahead2);
         }
     }, 100);

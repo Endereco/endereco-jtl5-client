@@ -1,26 +1,66 @@
 <?php
+
 namespace Plugin\endereco_jtl5_client\src\Helper;
 
+use JTL\Checkout\Bestellung;
+use JTL\Checkout\DeliveryAddressTemplate;
+use JTL\Checkout\Lieferadresse;
+use JTL\Customer\Customer;
+use JTL\Customer\DataHistory;
+use JTL\DB\NiceDB;
+use JTL\Helpers\Text;
 use JTL\Plugin\Plugin;
-use JTL\Shop;
+use JTL\Plugin\PluginInterface;
+use Plugin\endereco_jtl5_client\src\Structures\AddressCheckResult;
 
-class EnderecoService {
-
+class EnderecoService
+{
     public $plugin;
     public $clientInfo;
+    private NiceDB $dbConnection;
 
     /**
      * constructor
      *
      * @param Plugin $oPlugin
      */
-    public function __construct(Plugin $oPlugin)
+    public function __construct(PluginInterface $oPlugin, NiceDB $dbConnection)
     {
         $this->plugin = $oPlugin;
+        $this->dbConnection = $dbConnection;
         $this->clientInfo = 'Endereco JTL5 Client v' . $oPlugin->getMeta()->getVersion();
     }
 
-    public function findSessions() {
+    /**
+     * Checks if the API key is set and returns its status.
+     *
+     * This method determines if the API key necessary for the plugin's operation
+     * is set in the plugin's configuration. It checks the configuration value for
+     * 'endereco_jtl5_client_api_key' and returns true if it's not empty, indicating
+     * that the API key is set and presumably valid.
+     *
+     * @return bool Returns true if the API key is set, false otherwise.
+     */
+    public function isReady(): bool
+    {
+        $isApiKeySet = !empty($this->plugin->getConfig()->getValue('endereco_jtl5_client_api_key'));
+        return $isApiKeySet;
+    }
+
+    /**
+     * Finds and retrieves session IDs based on the POST request data.
+     *
+     * This method processes a POST request and extracts session IDs. It looks for
+     * specific POST variables ending with '_session_counter' and pairs them with
+     * corresponding '_session_id' variables. Only session IDs associated with a
+     * positive '_session_counter' value are considered.
+     *
+     * @return array An array of session IDs that meet the criteria. If the request
+     *               method is not POST or if no matching sessions are found, an
+     *               empty array is returned.
+     */
+    public function findSessions(): array
+    {
         $accountableSessionIds = array();
         if ('POST' === $_SERVER['REQUEST_METHOD']) {
             foreach ($_POST as $sVarName => $sVarValue) {
@@ -34,34 +74,71 @@ class EnderecoService {
         return $accountableSessionIds;
     }
 
-    public function generateSesionId() {
+    /**
+     * Generates a unique session ID.
+     *
+     * This method creates a session ID using cryptographically secure random bytes.
+     * It conforms to the UUID version 4 standard. The generated ID is a string
+     * formatted as a universally unique identifier (UUID), which is typically
+     * used for identifying information that needs to be unique within a system
+     * or network. The format of the UUID is 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+     * where 'x' is a random hexadecimal digit and 'y' is a hexadecimal digit
+     * representing 8, 9, A, or B.
+     *
+     * @return string A unique UUID string representing the session ID.
+     */
+    public function generateSesionId()
+    {
         $data = random_bytes(16);
         $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
-    public function checkAddress($Address) {
-        $return = [];
-
+    /**
+     * Validates and checks an address using the AddressCheck service.
+     *
+     * This method takes an address object, which can be of type Customer, Lieferadresse,
+     * or DeliveryAddressTemplate, and performs an address check using an external service.
+     * It handles different address formats, constructs a request with necessary parameters,
+     * and sends this request to the address checking service.
+     *
+     * The method generates a unique session ID for the transaction, constructs the request
+     * payload based on the provided address details, and handles the response. It also
+     * initiates accounting and conversion tracking after the address check.
+     *
+     * In case of an error during the process, the method should handle the exception
+     * appropriately (currently marked as TODO).
+     *
+     * @param Customer|Lieferadresse|DeliveryAddressTemplate $address The address to be checked.
+     *
+     * @return AddressCheckResult The result of the address check, encapsulated in an AddressCheckResult object.
+     */
+    public function checkAddress(Customer|Lieferadresse|DeliveryAddressTemplate $address): AddressCheckResult
+    {
         // Load config.
         $config = $this->plugin->getConfig();
 
         // Generate Session ID.
         $sessionId = $this->generateSesionId();
+
+        // Create address check result.
+        $addressCheckResult = new AddressCheckResult();
+
         // Check address.
         try {
-            if (empty(trim($Address->cHausnummer))) {
+            if (empty(trim($address->cHausnummer))) {
                 $message = array(
                     'jsonrpc' => '2.0',
                     'id' => 1,
                     'method' => 'addressCheck',
                     'params' => array(
                         'language' => 'de',
-                        'country' => strtoupper($Address->cLand),
-                        'postCode' => $Address->cPLZ,
-                        'cityName' => $Address->cOrt,
-                        'streetFull' => $Address->cStrasse
+                        'country' => strtoupper($address->cLand),
+                        'postCode' => $address->cPLZ,
+                        'cityName' => $address->cOrt,
+                        'streetFull' => $address->cStrasse,
+                        'additionalInfo' => $address->cAdressZusatz,
                     )
                 );
             } else {
@@ -71,11 +148,12 @@ class EnderecoService {
                     'method' => 'addressCheck',
                     'params' => array(
                         'language' => 'de',
-                        'country' => strtoupper($Address->cLand),
-                        'postCode' => $Address->cPLZ,
-                        'cityName' => $Address->cOrt,
-                        'street' => $Address->cStrasse,
-                        'houseNumber' => $Address->cHausnummer,
+                        'country' => strtoupper($address->cLand),
+                        'postCode' => $address->cPLZ,
+                        'cityName' => $address->cOrt,
+                        'street' => $address->cStrasse,
+                        'houseNumber' => $address->cHausnummer,
+                        'additionalInfo' => $address->cAdressZusatz,
                     )
                 );
             }
@@ -87,106 +165,391 @@ class EnderecoService {
                 'X-Transaction-Referer' => $_SERVER['HTTP_REFERER'] ?? 'not_set',
                 'X-Agent' => $this->clientInfo,
             );
-            $result = $this->sendRequest($message, $newHeaders);
+            $response = $this->sendRequest($message, $newHeaders);
 
-            // Save result in the database and return meta infos.
-            if (!empty($result['result'])) {
-                // Save to DB.
-                $ts = time();
-                $statuses = implode(',', $result['result']['status']);
+            $addressCheckResult->digestResponse($response);
 
-                $predictionsArray = $result['result']['predictions'];
-                $predictionsArrayRightFormat = [];
-                foreach($predictionsArray as $prediction) {
-                    $tempPrediction = [];
-                    if (!empty($prediction['country'])) {
-                        $tempPrediction['countryCode'] = $prediction['country'] ?? '';
-                    }
-                    if (!empty($prediction['cityName'])) {
-                        $tempPrediction['locality'] = $prediction['cityName'] ?? '';
-                    }
-                    if (!empty($prediction['postCode'])) {
-                        $tempPrediction['postalCode'] = $prediction['postCode'] ?? '';
-                    }
-                    if (!empty($prediction['street'])) {
-                        $tempPrediction['streetName'] = $prediction['street'] ?? '';
-                    }
-                    if (!empty($prediction['houseNumber'])) {
-                        $tempPrediction['buildingNumber'] = $prediction['houseNumber'] ?? '';
-                    }
-                    if (!empty($prediction['additionalInfo'])) {
-                        $tempPrediction['additionalInfo'] = $prediction['additionalInfo'] ?? '';
-                    }
-                    $predictionsArrayRightFormat[] = $tempPrediction;
-                }
-
-                $predictions = json_encode($predictionsArrayRightFormat);
-
-                // If customer address
-                if ('JTL\Customer\Customer' === get_class($Address)) {
-                    Shop::Container()->getDB()->queryPrepared(
-                        "INSERT INTO `xplugin_endereco_jtl5_client_tams` 
-                        (`kKunde`, `kRechnungsadresse`, `kLieferadresse`, `enderecoamsts`, `enderecoamsstatus`, `enderecoamspredictions`, `last_change_at`)
-                        VALUES 
-                        (:kKunde, NULL, NULL, :enderecoamsts, :enderecoamsstatus, :enderecoamspredictions, now())
-                        ON DUPLICATE KEY UPDATE    
-                        `kKunde`=:kKunde2, `enderecoamsts`=:enderecoamsts2, `enderecoamsstatus`=:enderecoamsstatus2, `enderecoamspredictions`=:enderecoamspredictions2, `last_change_at`=now()
-                        ",
-                        [
-                            ':kKunde' => $Address->kKunde,
-                            ':enderecoamsts' => $ts,
-                            ':enderecoamsstatus' => $statuses,
-                            ':enderecoamspredictions' => $predictions,
-                            ':kKunde2' => $Address->kKunde,
-                            ':enderecoamsts2' => $ts,
-                            ':enderecoamsstatus2' => $statuses,
-                            ':enderecoamspredictions2' => $predictions,
-                        ],
-                        1
-                    );
-                }
-
-                // If lieferadresse.
-                if ('JTL\Checkout\Lieferadresse' === get_class($Address)) {
-                    Shop::Container()->getDB()->queryPrepared(
-                        "INSERT INTO `xplugin_endereco_jtl5_client_tams` 
-                        (`kKunde`, `kRechnungsadresse`, `kLieferadresse`, `enderecoamsts`, `enderecoamsstatus`, `enderecoamspredictions`, `last_change_at`)
-                        VALUES 
-                        (NULL, NULL, :kLieferadresse, :enderecoamsts, :enderecoamsstatus, :enderecoamspredictions, now())
-                        ON DUPLICATE KEY UPDATE    
-                        `kLieferadresse`=:kLieferadresse2, `enderecoamsts`=:enderecoamsts2, `enderecoamsstatus`=:enderecoamsstatus2, `enderecoamspredictions`=:enderecoamspredictions2, `last_change_at`=now()
-                        ",
-                        [
-                            ':kLieferadresse' => $Address->kLieferadresse,
-                            ':enderecoamsts' => $ts,
-                            ':enderecoamsstatus' => $statuses,
-                            ':enderecoamspredictions' => $predictions,
-                            ':kLieferadresse2' => $Address->kLieferadresse,
-                            ':enderecoamsts2' => $ts,
-                            ':enderecoamsstatus2' => $statuses,
-                            ':enderecoamspredictions2' => $predictions,
-                        ],
-                        1
-                    );
-                }
-
-                // Prepare return.
-                $return = new \stdClass();
-                $return->enderecoamsts = $ts;
-                $return->enderecoamsstatus = $statuses;
-                $return->enderecoamspredictions = $predictions;
-
-                // Send doAccounting and doConversion.
-                $this->doAccountings([$sessionId]);
-            }
-        } catch(\Exception $e) {
+            // Send doAccounting and doConversion.
+            $this->doAccountings([$sessionId]);
+        } catch (\Exception $e) {
             // TODO: log error
         }
 
-        return $return;
+        return $addressCheckResult;
     }
 
-    public function doAccountings($sessionIds) {
+    /**
+     * Updates the address in the database.
+     *
+     * @param Customer|DeliveryAddressTemplate $addressObject The address object to be updated.
+     *
+     * @return void
+     */
+    public function updateAddressInDB(Customer|DeliveryAddressTemplate $addressObject): void
+    {
+        if ($addressObject instanceof Customer) {
+            $addressObject->updateInDB();
+        } else {
+            $addressObject->update();
+        }
+    }
+
+    /**
+     * Updates the address in the session.
+     *
+     * @param mixed $addressObject The address object to be updated.
+     * @param string $space The session space key where the address object is stored.
+     * @return void
+     */
+    public function updateAddressInSession($addressObject): void
+    {
+        if ($addressObject instanceof Customer) {
+            $space = 'Kunde';
+            DataHistory::saveHistory($_SESSION[$space], $addressObject, DataHistory::QUELLE_BESTELLUNG);
+        } elseif ($addressObject instanceof Lieferadresse) {
+            $space = 'Lieferadresse';
+        } elseif ($addressObject instanceof DeliveryAddressTemplate) {
+            $addressObject = $addressObject->getDeliveryAddress();
+            $space = 'Lieferadresse';
+        } else {
+            return;
+        }
+
+        $_SESSION[$space] = $addressObject;
+    }
+
+    /**
+     * Applies automatic corrections to an address object based on the results of an address check.
+     *
+     * This method takes an address object (Customer, Lieferadresse, or DeliveryAddressTemplate) and
+     * an AddressCheckResult object. If the AddressCheckResult indicates that an automatic correction
+     * is available, this method updates the address object with the corrected address details.
+     *
+     * The corrections are applied based on a predefined mapping between the fields in the address
+     * check result and the corresponding properties in the address object. Only the fields present
+     * in the autocorrection result are updated.
+     *
+     * @param Customer|Lieferadresse|DeliveryAddressTemplate $addressObject The original address object to be corrected.
+     * @param AddressCheckResult $checkResult The result from the address check containing potential corrections.
+     *
+     * @return Customer|Lieferadresse|DeliveryAddressTemplate The address object after applying the corrections.
+     */
+    public function applyAutocorrection(
+        Customer|Lieferadresse|DeliveryAddressTemplate $addressObject,
+        AddressCheckResult $checkResult
+    ): Customer|Lieferadresse|DeliveryAddressTemplate {
+        if ($checkResult->isAutomaticCorrection()) {
+            $correctionArray = $checkResult->getAutocorrectionArray();
+            $mapping = [
+                'countryCode' => 'cLand',
+                'postalCode' => 'cPLZ',
+                'locality' => 'cOrt',
+                'streetName' => 'cStrasse',
+                'buildingNumber' => 'cHausnummer',
+                'additionalInfo' => 'cAdressZusatz',
+            ];
+
+            foreach ($correctionArray as $key => $value) {
+                if (array_key_exists($key, $mapping)) {
+                    $propertyName = $mapping[$key];
+                    $addressObject->$propertyName = $value;
+                }
+            }
+        }
+
+        return $addressObject;
+    }
+
+    /**
+     * Updates the address metadata in the session.
+     *
+     * This function takes a timestamp, status(es), prediction(s), and a space identifier
+     * to update address-related metadata in the session. If `statuses` or `predictions`
+     * are provided as arrays, they are converted to a string and JSON format respectively.
+     * The function updates or initializes the address metadata in the session under
+     * the given `space`.
+     *
+     * @param string $timestamp The timestamp associated with the address update.
+     * @param string|array $statuses The status or an array of statuses related to the address.
+     * @param string|array $predictions The prediction or an array of predictions related to the address.
+     * @param string $space The session key under which the address metadata is stored.
+     *
+     * @return void
+     */
+    public function updateAddressMetaInSession(
+        string $timestamp,
+        string|array $statuses,
+        string|array $predictions,
+        string $space
+    ): void {
+        if (is_array($statuses)) {
+            $statuses = implode(',', $statuses);
+        }
+
+        if (is_array($predictions)) {
+            $predictions = json_encode($predictions);
+        }
+
+        if (!array_key_exists($space, $_SESSION)) {
+            $_SESSION[$space] = [
+                'enderecoamsstatus' => $statuses,
+                'enderecoamspredictions' => $predictions,
+                'enderecoamsts' => $timestamp
+            ];
+        } else {
+            $_SESSION[$space]['enderecoamsstatus'] = $statuses;
+            $_SESSION[$space]['enderecoamspredictions'] = $predictions;
+            $_SESSION[$space]['enderecoamsts'] = $timestamp;
+        }
+    }
+
+    /**
+     * Determines whether the billing address is different from the shipping address.
+     *
+     * This method checks the session data to determine if the billing address (Kunde) and
+     * shipping address (Lieferadresse) are different. It considers various scenarios, such as
+     * when a shipping address preset is selected or when the shipping address is not set.
+     *
+     * @return bool Returns true if the billing and shipping addresses are different, false otherwise.
+     */
+    public function isBillingDifferentFromShipping(): bool
+    {
+        // Check if a shipping address preset is selected - always consider different in this case
+        if (!empty($_SESSION['shippingAddressPresetID'])) {
+            return true;
+        }
+
+        // If shipping address (Lieferadresse) is not set in the session, it's the same as the billing address
+        if (!isset($_SESSION['Lieferadresse']) || empty($_SESSION['Lieferadresse'])) {
+            return false;
+        }
+
+        $sameCountry = $this->compareStringsDifferentEncodings(
+            $_SESSION['Kunde']->cLand,
+            $_SESSION['Lieferadresse']->cLand
+        );
+
+        $samePostalCode = $this->compareStringsDifferentEncodings(
+            $_SESSION['Kunde']->cPLZ,
+            $_SESSION['Lieferadresse']->cPLZ
+        );
+
+        $sameLocality = $this->compareStringsDifferentEncodings(
+            $_SESSION['Kunde']->cOrt,
+            $_SESSION['Lieferadresse']->cOrt
+        );
+
+        $sameStreet = $this->compareStringsDifferentEncodings(
+            $_SESSION['Kunde']->cStrasse,
+            $_SESSION['Lieferadresse']->cStrasse
+        );
+
+        $sameBuildingNumber = $this->compareStringsDifferentEncodings(
+            $_SESSION['Kunde']->cHausnummer,
+            $_SESSION['Lieferadresse']->cHausnummer
+        );
+
+        $sameAddition = $this->compareStringsDifferentEncodings(
+            $_SESSION['Kunde']->cAdressZusatz,
+            $_SESSION['Lieferadresse']->cAdressZusatz
+        );
+
+        $sameAddress = $sameCountry
+            && $samePostalCode
+            && $sameLocality
+            && $sameStreet
+            && $sameBuildingNumber
+            && $sameAddition;
+
+        // If any of the fields differ, the addresses are considered different
+        return !$sameAddress;
+    }
+
+    /**
+     * Compares two strings that may be in different encodings, converting them to a common encoding.
+     *
+     * This function takes two strings and an optional target encoding (defaulting to UTF-8). It first
+     * detects the encoding of each string and then converts both to the target encoding. After conversion,
+     * it also decodes any HTML entities. The strings are then compared for equality.
+     *
+     * @param string $str1 The first string to compare.
+     * @param string $str2 The second string to compare.
+     * @param string $targetEncoding (optional) The encoding to convert both strings to, defaults to 'UTF-8'.
+     *
+     * @return bool Returns true if the converted strings are equal, false otherwise.
+     */
+    public function compareStringsDifferentEncodings(string $str1, string $str2, $targetEncoding = 'UTF-8')
+    {
+        // Convert both strings to the target encoding
+        $convertedStr1 = trim(mb_convert_encoding($str1, $targetEncoding, mb_detect_encoding($str1)));
+        $convertedStr2 = trim(mb_convert_encoding($str2, $targetEncoding, mb_detect_encoding($str2)));
+
+        $convertedStr1 = Text::unhtmlentities($convertedStr1);
+        $convertedStr2 = Text::unhtmlentities($convertedStr2);
+
+        // Compare the converted strings
+        return strcmp($convertedStr1, $convertedStr2) == 0;
+    }
+
+    /**
+     * Clears specific metadata related to billing and shipping addresses from the session.
+     *
+     * This method removes 'EnderecoBillingAddressMeta' and 'EnderecoShippingAddressMeta'
+     * from the session, effectively resetting any stored metadata for billing and shipping
+     * addresses. It is typically used to ensure that outdated or irrelevant address metadata
+     * does not persist in the session.
+     */
+    public function clearMetaFromSession(): void
+    {
+        unset($_SESSION['EnderecoBillingAddressMeta']);
+        unset($_SESSION['EnderecoShippingAddressMeta']);
+    }
+
+    /**
+     * Updates the address metadata in the database.
+     *
+     * This function is responsible for updating address metadata in the database based on
+     * the provided address object (either Customer or DeliveryAddressTemplate), timestamp,
+     * status(es), and prediction(s). The function handles the conversion of `statuses` and
+     * `predictions` arrays into a string and JSON format, respectively. It then determines
+     * the appropriate IDs (customer or delivery address) based on the type of address object
+     * provided. The function also sanitizes the input data to prevent XSS attacks before
+     * inserting or updating the database record.
+     *
+     * @param Customer|Lieferadresse|DeliveryAddressTemplate $addressObject An object representing either a customer
+     *                                                                      or a delivery address.
+     * @param string $timestamp The timestamp associated with the address update.
+     * @param string|array $statuses The status or an array of statuses related to the address.
+     * @param string|array $predictions The prediction or an array of predictions related to the address.
+     *
+     * @return void
+     */
+    public function updateAddressMetaInDB(
+        Customer|Lieferadresse|DeliveryAddressTemplate $addressObject,
+        string $timestamp,
+        string|array $statuses,
+        string|array $predictions
+    ): void {
+        if (is_array($statuses)) {
+            $statuses = implode(',', $statuses);
+        }
+
+        if (is_array($predictions)) {
+            $predictions = json_encode($predictions);
+        }
+
+        if ($addressObject instanceof Customer) {
+            $billingAddressId = $addressObject->kKunde;
+            $shippingAddressId = null;
+        } else {
+            $billingAddressId = null;
+            $shippingAddressId = $addressObject->kLieferadresse;
+        }
+
+        // Prepare meta values
+        $filteredTs = Text::filterXSS($timestamp);
+        $filteredStatus = Text::filterXSS($statuses);
+
+        if (is_string($predictions)) {
+            $decodedPredictions = json_decode($predictions, true);
+
+            // Check if json_decode returned a valid result.
+            if ($decodedPredictions !== null) {
+                $filteredPredictions = $predictions;
+            } else {
+                $filteredPredictions = '[]';
+            }
+        } elseif (is_array($predictions)) {
+            // If predictions is an array, encode it as JSON.
+            $filteredPredictions = json_encode($predictions);
+        } else {
+            $filteredPredictions = '[]';
+        }
+
+        // SQL query with placeholders
+        $sql = "INSERT INTO `xplugin_endereco_jtl5_client_tams` 
+            (`kKunde`, `kRechnungsadresse`, `kLieferadresse`, `enderecoamsts`, 
+             `enderecoamsstatus`, `enderecoamspredictions`, `last_change_at`)
+         VALUES 
+            (:kKunde, NULL, :kLieferadresse, :enderecoamsts, :enderecoamsstatus, 
+             :enderecoamspredictions, now())
+         ON DUPLICATE KEY UPDATE    
+            `kKunde`=:kKunde, `kLieferadresse`=:kLieferadresse, `enderecoamsts`=:enderecoamsts, 
+            `enderecoamsstatus`=:enderecoamsstatus, `enderecoamspredictions`=:enderecoamspredictions, 
+            `last_change_at`=now()";
+
+
+        // Prepare and execute the query
+        $this->dbConnection->queryPrepared(
+            $sql,
+            [
+                ':kKunde' => $billingAddressId,
+                ':kLieferadresse' => $shippingAddressId,
+                ':enderecoamsts' => $filteredTs,
+                ':enderecoamsstatus' => $filteredStatus,
+                ':enderecoamspredictions' => $filteredPredictions
+            ],
+            1
+        );
+    }
+
+    /**
+     * Retrieves metadata related to an order's address.
+     *
+     * Fetches address metadata such as status, predictions, and timestamps from session data
+     * based on whether the order has a delivery address or uses the customer's address.
+     *
+     * @param Bestellung $order The order for which address metadata is required.
+     *
+     * @return \stdClass An object containing the address metadata.
+     */
+    public function getOrderAddressMeta(Bestellung $order): \stdClass
+    {
+        $addressMeta = new \stdClass();
+        $addressMeta->enderecoamsts = '';
+        $addressMeta->enderecoamsstatus = '';
+        $addressMeta->enderecoamspredictions = '';
+
+        if (!empty($order->kLieferadresse)) {
+            if (
+                $_SESSION['EnderecoShippingAddressMeta'] &&
+                !empty($_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
+            ) {
+                $addressMeta->enderecoamsstatus = $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'];
+                $addressMeta->enderecoamspredictions
+                    = $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions'];
+                $addressMeta->enderecoamsts = $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'];
+            }
+        } elseif ($order->kKunde) {
+            if (
+                !empty($_SESSION['EnderecoBillingAddressMeta']) &&
+                !empty($_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
+            ) {
+                $addressMeta->enderecoamsstatus = $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'];
+                $addressMeta->enderecoamspredictions
+                    = $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions'];
+                $addressMeta->enderecoamsts = $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'];
+            }
+        }
+
+        return $addressMeta;
+    }
+
+    /**
+     * Performs accounting actions for given session IDs and triggers a conversion event.
+     *
+     * This method iterates over an array of session IDs, sending a 'doAccounting' request
+     * for each session ID to a remote service. After processing all session IDs, if at least
+     * one 'doAccounting' request has been made, it additionally sends a 'doConversion' request.
+     *
+     * Each request includes relevant information such as session ID and configuration values,
+     * and is sent using the `sendRequest` method. The method handles exceptions silently and
+     * may log errors (logging implementation is marked as TODO).
+     *
+     * @param array $sessionIds An array of session IDs for which to perform accounting.
+     */
+    public function doAccountings($sessionIds)
+    {
 
         // Get sessionids.
         if (empty($sessionIds)) {
@@ -216,8 +579,7 @@ class EnderecoService {
                 );
                 $this->sendRequest($message, $newHeaders);
                 $anyDoAccounting = true;
-
-            } catch(\Exception $e) {
+            } catch (\Exception $e) {
                 // TODO: log error
             }
         }
@@ -238,19 +600,34 @@ class EnderecoService {
                     'X-Agent' => $this->clientInfo,
                 );
                 $this->sendRequest($message, $newHeaders);
-            } catch(\Exception $e) {
+            } catch (\Exception $e) {
                 // Do nothing.
             }
         }
     }
 
-    public function sendRequest($body, $headers) {
+    /**
+     * Sends an HTTP POST request to a remote service.
+     *
+     * This method constructs and sends an HTTP POST request using cURL. It takes a
+     * request body and an array of headers as parameters, encodes the body as JSON,
+     * and appends the appropriate headers. The request is sent to the URL specified
+     * in the plugin configuration ('endereco_jtl5_client_remote_url'). The method
+     * returns the decoded JSON response.
+     *
+     * @param array $body The request body to be sent, which will be JSON encoded.
+     * @param array $headers An associative array of headers to be included in the request.
+     *
+     * @return array The decoded JSON response from the remote service.
+     */
+    public function sendRequest(array $body, array $headers): array
+    {
         $config = $this->plugin->getConfig();
         $serviceUrl = $config->getValue('endereco_jtl5_client_remote_url');
         $ch = curl_init(trim($serviceUrl));
         $dataString = json_encode($body);
         $parsedHeaders = array();
-        foreach ($headers as $headerName=>$headerValue) {
+        foreach ($headers as $headerName => $headerValue) {
             $parsedHeaders[] = $headerName . ': ' . $headerValue;
         }
         $parsedHeaders[] = 'Content-Length: ' . strlen($dataString);

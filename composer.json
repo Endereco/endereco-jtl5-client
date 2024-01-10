@@ -1,5 +1,5 @@
 {
-    "name": "endereco/endereco-jtl4-client",
+    "name": "endereco/endereco-jtl5-client",
     "authors": [
         {
             "name": "Ilja Weber",
@@ -10,7 +10,10 @@
       "ext-curl": "*",
       "ext-json": "*"
     },
+    "scripts":  {
+        "qa": "phpcs --standard=PSR12 --ignore=vendor/ --ignore=node_modules/ ./src"
+    },
     "require-dev": {
-        "squizlabs/php_codesniffer": "^3.5"
+        "squizlabs/php_codesniffer": "3.7.2"
     }
 }

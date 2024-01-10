@@ -3,7 +3,7 @@
     <description>Custom ruleset</description>
 
     <!-- Include the whole PHPCS standard -->
-    <rule ref="PEAR"/>
+    <rule ref="PSR12"/>
 
     <rule ref="Generic.Files.LineLength">
         <properties>
