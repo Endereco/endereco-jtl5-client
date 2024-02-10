@@ -5,6 +5,7 @@ use JTL\DB\DbInterface;
 use JTL\Plugin\Bootstrapper;
 use JTL\Plugin\PluginInterface;
 use JTL\Services\DefaultServicesInterface;
+use JTL\Services\JTL\AlertServiceInterface;
 use JTL\Services\JTL\CryptoServiceInterface;
 use JTL\Shop;
 use JTL\Events\Dispatcher;
@@ -53,6 +54,9 @@ class Bootstrap extends Bootstrapper
         /** @var DbInterface $dbConnection */
         $dbConnection = $container->getDB();
 
+        /** @var AlertServiceInterface $dbConnection */
+        $alertService = $container->getAlertService();
+
         /** @var JTLSmarty $dbConnection */
         $smarty = Shop::Smarty();
 
@@ -67,7 +71,8 @@ class Bootstrap extends Bootstrapper
             $enderecoService,
             $cryptoService,
             $templateService,
-            $dbConnection
+            $dbConnection,
+            $alertService
         );
 
         // This service handles all the hooks.
@@ -126,5 +131,6 @@ class Bootstrap extends Bootstrapper
 
         // Extend comment.
         $dispatcher->listen('shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE, [$commentHandler, 'extendOrderComment']);
+        $dispatcher->listen('shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE, [$metaHandler, 'clearMetaAndCacheFromSession']);
     }
 }
