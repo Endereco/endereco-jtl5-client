@@ -111,7 +111,9 @@ class Bootstrap extends Bootstrapper
         $dispatcher->listen('shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE, [$sessionHandler, 'closeSessions']);
 
         // Save meta from submit in the database.
-        $dispatcher->listen('shop.hook.' . \HOOK_REGISTRATION_CUSTOMER_CREATED, [$metaHandler, 'saveMetaFromSubmitInDatabase']);
+        if (defined('HOOK_REGISTRATION_CUSTOMER_CREATED')) {
+            $dispatcher->listen('shop.hook.' . \HOOK_REGISTRATION_CUSTOMER_CREATED, [$metaHandler, 'saveMetaFromSubmitInDatabase']);
+        }
         $dispatcher->listen('shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE, [$metaHandler, 'saveMetaFromSubmitInDatabase']);
 
         // Load meta from database into session.

@@ -307,11 +307,6 @@
                     <Description>Mit dieser Einstellung wird bestimmt, ob nach der Auswahl und Übernahme einer Adresse das Absenden der Form fortgesetzt wird oder ob der Nutzer noch mal auf "Absenden" klicken muss.</Description>
                     <ValueName>endereco_jtl5_client_resume_submit</ValueName>
                 </Setting>
-                <Setting type="checkbox" initialValue="on" sort="50" conf="Y">
-                    <Name>Felder bei nur einem verbleibenden Adressvorschlag automatisch ausfüllen</Name>
-                    <Description>Wenn während der Eingabe von Postleitzahl, Ort oder der Straße die Eingabe eindeutig ist (nur ein Vorschlag), wird diese Eingabe in das Eingabefeld automatisch übernommen und die Eingabe für 1 Sekunde blockiert, damit der Nutzer es merken kann. Löscht der Nutzer seine Eingabe, wird der SmartAutocomplete für seine Session deaktiviert.</Description>
-                    <ValueName>endereco_jtl5_client_smart_fill</ValueName>
-                </Setting>
             </Settingslink>
 
             <Settingslink sort="60">

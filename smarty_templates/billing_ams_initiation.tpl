@@ -5,23 +5,21 @@
 <script>
     {literal}
     enderecoInitAMS(
-        '',
+        {
+            countryCode: '[name="land"]',
+            postalCode: '[name="plz"]',
+            locality: '[name="ort"]',
+            streetFull: '',
+            streetName: '[name="strasse"]',
+            buildingNumber: '[name="hausnummer"]',
+            addressStatus: '[name="enderecoamsstatus"]',
+            addressTimestamp: '[name="enderecoamsts"]',
+            addressPredictions: '[name="enderecoamspredictions"]',
+            additionalInfo: '[name="adresszusatz"]',
+        },
         {
             addressType: 'billing_address',
             name: 'billing_address'
-        },
-        function(EAO) {
-            if (!!document.querySelector('[name="ort"]')) {
-                document.querySelector('[name="ort"]').addEventListener('endereco-blur', function(e) {
-                    e.target.dispatchEvent(new CustomEvent('blur'));
-                });
-            }
-
-            if (!!document.querySelector('[name="plz"]')) {
-                document.querySelector('[name="plz"]').addEventListener('endereco-blur', function(e) {
-                    e.target.dispatchEvent(new CustomEvent('blur'));
-                });
-            }
         }
     )
 

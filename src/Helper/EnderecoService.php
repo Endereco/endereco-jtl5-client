@@ -127,35 +127,27 @@ class EnderecoService
 
         // Check address.
         try {
+            $message = array(
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'addressCheck',
+                'params' => array(
+                    'language' => 'de',
+                    'country' => strtoupper($address->cLand),
+                    'postCode' => html_entity_decode($address->cPLZ),
+                    'cityName' => html_entity_decode($address->cOrt),
+                )
+            );
+
             if (empty(trim($address->cHausnummer))) {
-                $message = array(
-                    'jsonrpc' => '2.0',
-                    'id' => 1,
-                    'method' => 'addressCheck',
-                    'params' => array(
-                        'language' => 'de',
-                        'country' => strtoupper($address->cLand),
-                        'postCode' => $address->cPLZ,
-                        'cityName' => $address->cOrt,
-                        'streetFull' => $address->cStrasse,
-                        'additionalInfo' => $address->cAdressZusatz,
-                    )
-                );
+                $message['params']['streetFull'] = html_entity_decode($address->cStrasse);
             } else {
-                $message = array(
-                    'jsonrpc' => '2.0',
-                    'id' => 1,
-                    'method' => 'addressCheck',
-                    'params' => array(
-                        'language' => 'de',
-                        'country' => strtoupper($address->cLand),
-                        'postCode' => $address->cPLZ,
-                        'cityName' => $address->cOrt,
-                        'street' => $address->cStrasse,
-                        'houseNumber' => $address->cHausnummer,
-                        'additionalInfo' => $address->cAdressZusatz,
-                    )
-                );
+                $message['params']['street'] = html_entity_decode($address->cStrasse);
+                $message['params']['houseNumber'] = html_entity_decode($address->cHausnummer);
+            }
+
+            if (!is_null($address->cAdressZusatz)) {
+                $message['params']['additionalInfo'] = $address->cAdressZusatz;
             }
 
             $newHeaders = array(
@@ -165,17 +157,51 @@ class EnderecoService
                 'X-Transaction-Referer' => $_SERVER['HTTP_REFERER'] ?? 'not_set',
                 'X-Agent' => $this->clientInfo,
             );
-            $response = $this->sendRequest($message, $newHeaders);
+
+            if (!isset($_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)])) {
+                $response = $this->sendRequest($message, $newHeaders);
+
+                // Send doAccounting and doConversion.
+                $this->doAccountings([$sessionId]);
+                $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)] = $response;
+            }
+
+            $response = $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)];
 
             $addressCheckResult->digestResponse($response);
-
-            // Send doAccounting and doConversion.
-            $this->doAccountings([$sessionId]);
         } catch (\Exception $e) {
             // TODO: log error
         }
 
         return $addressCheckResult;
+    }
+
+    /**
+     * Generates a base64-encoded string representing the JSON-encoded request array
+     * after sorting the 'params' sub-array by its keys alphabetically.
+     *
+     * This function is useful for creating a unique, encoded key for a given request array,
+     * which can then be used for caching, logging, or other purposes where a consistent,
+     * reproducible string representation of the request is needed.
+     *
+     * @param array $requestArray The request array to be processed. This array must include
+     *                            a 'params' key with an array as its value. The 'params'
+     *                            array will be sorted alphabetically by key before encoding.
+     *
+     * @return string A base64-encoded string representing the JSON-encoded request array
+     *                with its 'params' sub-array sorted.
+     *
+     * Note: It is assumed that the 'params' key is always present in the input array. If 'params'
+     *       is not set or is not an array, this function may not behave as expected, potentially
+     *       leading to errors or unexpected behavior.
+     */
+    public function createRequestKey(array $requestArray): string
+    {
+        unset($requestArray['jsonrpc']);
+        unset($requestArray['id']);
+        ksort($requestArray['params']);
+
+        return base64_encode(json_encode($requestArray));
     }
 
     /**
@@ -205,7 +231,9 @@ class EnderecoService
     {
         if ($addressObject instanceof Customer) {
             $space = 'Kunde';
-            DataHistory::saveHistory($_SESSION[$space], $addressObject, DataHistory::QUELLE_BESTELLUNG);
+            if (!empty($addressObject->kKunde)) {
+                DataHistory::saveHistory($_SESSION[$space], $addressObject, DataHistory::QUELLE_BESTELLUNG);
+            }
         } elseif ($addressObject instanceof Lieferadresse) {
             $space = 'Lieferadresse';
         } elseif ($addressObject instanceof DeliveryAddressTemplate) {
@@ -252,6 +280,12 @@ class EnderecoService
             foreach ($correctionArray as $key => $value) {
                 if (array_key_exists($key, $mapping)) {
                     $propertyName = $mapping[$key];
+
+                    // Fix for when API returns lower cased country code.
+                    if ('countryCode' === $key) {
+                        $value = strtoupper($value);
+                    }
+
                     $addressObject->$propertyName = $value;
                 }
             }
@@ -304,6 +338,81 @@ class EnderecoService
     }
 
     /**
+     * Updates address metadata in the session cache based on given address data, statuses, and predictions.
+     *
+     * This method processes address data along with status and prediction information to construct
+     * a request object and a corresponding fake response. The response includes the processed statuses
+     * and predictions (converted to a specific format if necessary) and is stored in the session cache.
+     * The method dynamically handles string or array inputs for statuses and predictions, converting
+     * strings to arrays as needed. It constructs a JSON-RPC style message for an 'addressCheck' method
+     * call, incorporating the provided address data and additional information.
+     *
+     * @param array $addressData An associative array containing address components, such as
+     *                           'countryCode', 'postalCode', 'locality', 'buildingNumber', 'streetName',
+     *                           and optionally 'additionalInfo'.
+     * @param string|array $statuses A single status or an array of statuses related to the address
+     *                               check. If a string is provided, it should contain statuses separated
+     *                               by commas.
+     * @param string|array $predictions A JSON string or an array of prediction data. If a string is
+     *                                  provided, it is decoded into an array.
+     * @return void The method does not return a value but updates the session cache with the constructed
+     *              response.
+     */
+    public function updateAddressMetaInCache(
+        array $addressData,
+        string|array $statuses,
+        string|array $predictions
+    ) {
+        if (is_string($predictions)) {
+            $predictions = json_decode($predictions, true);
+        }
+
+        if (is_string($statuses)) {
+            $statuses = explode(',', $statuses);
+        }
+
+        // Recreate the request object.
+        $message = array(
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'addressCheck',
+            'params' => array(
+                'language' => 'de',
+                'country' => strtoupper($addressData['countryCode']),
+                'postCode' => $addressData['postalCode'],
+                'cityName' => $addressData['locality'],
+            )
+        );
+
+        if (!empty(trim($addressData['buildingNumber']))) {
+            $message['params']['houseNumber'] = $addressData['buildingNumber'];
+            $message['params']['street'] = $addressData['streetName'];
+        } else {
+            $message['params']['streetFull'] = $addressData['streetName'];
+        }
+
+        $message['params']['additionalInfo'] = $addressData['additionalInfo'] ?? '';
+
+        $fakeAddressCheckResult = new AddressCheckResult();
+
+        // Recreate response.
+        $response = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'result' => [
+                'status' => $statuses,
+                'predictions' => $fakeAddressCheckResult->transformPredictionsToOuterFormat($predictions)
+            ]
+        ];
+
+        if (!isset($_SESSION['EnderecoRequestCache'])) {
+            $_SESSION['EnderecoRequestCache'] = [];
+        }
+
+        $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)] = $response;
+    }
+
+    /**
      * Determines whether the billing address is different from the shipping address.
      *
      * This method checks the session data to determine if the billing address (Kunde) and
@@ -325,33 +434,33 @@ class EnderecoService
         }
 
         $sameCountry = $this->compareStringsDifferentEncodings(
-            $_SESSION['Kunde']->cLand,
-            $_SESSION['Lieferadresse']->cLand
+            $_SESSION['Kunde']->cLand ?? '',
+            $_SESSION['Lieferadresse']->cLand ?? ''
         );
 
         $samePostalCode = $this->compareStringsDifferentEncodings(
-            $_SESSION['Kunde']->cPLZ,
-            $_SESSION['Lieferadresse']->cPLZ
+            $_SESSION['Kunde']->cPLZ ?? '',
+            $_SESSION['Lieferadresse']->cPLZ ?? ''
         );
 
         $sameLocality = $this->compareStringsDifferentEncodings(
-            $_SESSION['Kunde']->cOrt,
-            $_SESSION['Lieferadresse']->cOrt
+            $_SESSION['Kunde']->cOrt ?? '',
+            $_SESSION['Lieferadresse']->cOrt ?? ''
         );
 
         $sameStreet = $this->compareStringsDifferentEncodings(
-            $_SESSION['Kunde']->cStrasse,
-            $_SESSION['Lieferadresse']->cStrasse
+            $_SESSION['Kunde']->cStrasse ?? '',
+            $_SESSION['Lieferadresse']->cStrasse ?? ''
         );
 
         $sameBuildingNumber = $this->compareStringsDifferentEncodings(
-            $_SESSION['Kunde']->cHausnummer,
-            $_SESSION['Lieferadresse']->cHausnummer
+            $_SESSION['Kunde']->cHausnummer ?? '',
+            $_SESSION['Lieferadresse']->cHausnummer ?? ''
         );
 
         $sameAddition = $this->compareStringsDifferentEncodings(
-            $_SESSION['Kunde']->cAdressZusatz,
-            $_SESSION['Lieferadresse']->cAdressZusatz
+            $_SESSION['Kunde']->cAdressZusatz ?? '',
+            $_SESSION['Lieferadresse']->cAdressZusatz ?? ''
         );
 
         $sameAddress = $sameCountry

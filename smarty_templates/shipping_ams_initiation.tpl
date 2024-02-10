@@ -5,37 +5,23 @@
 <script>
     {literal}
     enderecoInitAMS(
-        '',
+        {
+            countryCode: 'register[shipping_address][land]',
+            postalCode: 'register[shipping_address][plz]',
+            locality: 'register[shipping_address][ort]',
+            streetFull: '',
+            streetName: 'register[shipping_address][strasse]',
+            buildingNumber: 'register[shipping_address][hausnummer]',
+            addressStatus: 'enderecodeliveryamsstatus',
+            addressTimestamp: 'enderecodeliveryamsts',
+            addressPredictions: 'enderecodeliveryamspredictions',
+            additionalInfo: 'register[shipping_address][adresszusatz]',
+        },
         {
             name: 'shipping_address',
-            addressType: 'shipping_address',
-            postfixCollection: {
-                countryCode: 'register[shipping_address][land]',
-                postalCode: 'register[shipping_address][plz]',
-                locality: 'register[shipping_address][ort]',
-                streetFull: '',
-                streetName: 'register[shipping_address][strasse]',
-                buildingNumber: 'register[shipping_address][hausnummer]',
-                addressStatus: 'enderecodeliveryamsstatus',
-                addressTimestamp: 'enderecodeliveryamsts',
-                addressPredictions: 'enderecodeliveryamspredictions',
-                additionalInfo: 'register[shipping_address][adresszusatz]',
-            }
+            addressType: 'shipping_address'
         },
         function(EAO) {
-
-            if (!!document.querySelector('[name="ort"]')) {
-                document.querySelector('[name="ort"]').addEventListener('endereco-blur', function(e) {
-                    e.target.dispatchEvent(new CustomEvent('blur'));
-                });
-            }
-
-            if (!!document.querySelector('[name="plz"]')) {
-                document.querySelector('[name="plz"]').addEventListener('endereco-blur', function(e) {
-                    e.target.dispatchEvent(new CustomEvent('blur'));
-                });
-            }
-
             // Compatibility issue with DHL Wunschpaket.
             if (document.querySelector('select#kLieferadresse')) {
                 document.querySelector('select#kLieferadresse').addEventListener('change', function() {

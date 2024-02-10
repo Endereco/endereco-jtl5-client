@@ -6,15 +6,38 @@
     if (!window.EnderecoIntegrator.onLoad) {
         window.EnderecoIntegrator.onLoad = [];
     }
+
+    function setBlurListener(EAO, elements) {
+        for (const key in elements) {
+            if (Object.prototype.hasOwnProperty.call(elements, key)) {
+                const selector = elements[key];
+                if (!selector) {
+                    continue;
+                }
+                const element = document.querySelector(selector);
+
+                if (element) {
+                    element.addEventListener('endereco-blur', function(e) {
+                        // Dispatch 'focus' and 'blur' events on the target element
+                        e.target.dispatchEvent(new EAO.util.CustomEvent('focus', { bubbles: true, cancelable: true }));
+                        e.target.dispatchEvent(new EAO.util.CustomEvent('blur', { bubbles: true, cancelable: true }));
+                        e.target.dispatchEvent(new EAO.util.CustomEvent('focus', { bubbles: true, cancelable: true }));
+                    });
+                }
+            }
+        }
+    }
     function enderecoInitAMS(prefix, config, cb = undefined) {
         if (undefined !== window.EnderecoIntegrator.initAMS) {
             const $EAO = window.EnderecoIntegrator.initAMS(prefix, config);
+            setBlurListener($EAO, prefix);
             if (cb) {
                 cb($EAO);
             }
         } else {
             window.EnderecoIntegrator.onLoad.push( function() {
                 const $EAO = window.EnderecoIntegrator.initAMS(prefix, config);
+                setBlurListener($EAO, prefix);
                 if (cb) {
                     cb($EAO);
                 }
@@ -54,7 +77,7 @@
         window.EnderecoIntegrator.config.showDebugInfo = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_show_debug_info')}');
         window.EnderecoIntegrator.config.trigger.onblur = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_onblur_trigger')}');
         window.EnderecoIntegrator.config.trigger.onsubmit = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_onsubmit_trigger')}');
-        window.EnderecoIntegrator.config.ux.smartFill = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_smart_fill')}');
+        window.EnderecoIntegrator.config.ux.smartFill = false;
         window.EnderecoIntegrator.config.ux.checkExisting = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_check_existing')}');
         window.EnderecoIntegrator.config.ux.resumeSubmit = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_resume_submit')}');
         window.EnderecoIntegrator.config.ux.useStandardCss = ('on' === '{$endereco_plugin_config->getValue('endereco_jtl5_client_use_standart_css')}');

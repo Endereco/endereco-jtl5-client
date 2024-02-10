@@ -96,6 +96,13 @@ class AjaxHandler
             'EnderecoBillingAddressMeta'
         );
 
+        $addressData = $this->extractAddressData($params);
+
+        $this->enderecoService->updateAddressMetaInCache(
+            $addressData,
+            $params['enderecometa']['status'],
+            $params['enderecometa']['predictions']
+        );
 
         if ($copyToShipping) {
             $this->updateShippingAddress($params);
@@ -155,7 +162,32 @@ class AjaxHandler
             'EnderecoShippingAddressMeta'
         );
 
+        $addressData = $this->extractAddressData($params);
+
+        $this->enderecoService->updateAddressMetaInCache(
+            $addressData,
+            $params['enderecometa']['status'],
+            $params['enderecometa']['predictions']
+        );
+
         return;
+    }
+
+    /**
+     * Extracts and returns the updated address data from the given parameters.
+     *
+     * This method assumes that the input array contains an 'updatedAddress' key
+     * which holds the address data to be extracted. It directly returns the value
+     * associated with this key. If the 'updatedAddress' key does not exist, the behavior
+     * will depend on how the array is structured and how it handles missing keys.
+     *
+     * @param array $params An associative array containing at least the 'updatedAddress' key.
+     *
+     * @return array The address data extracted from the input parameters.
+     */
+    public function extractAddressData($params): array
+    {
+        return $params['updatedAddress'];
     }
 
     /**

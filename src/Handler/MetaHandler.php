@@ -57,6 +57,26 @@ class MetaHandler
     }
 
     /**
+     * Clears metadata and cache related to addresses from the session.
+     *
+     * This method specifically removes the session variables used to store billing address metadata,
+     * shipping address metadata, and request cache related to address checks. It is typically used
+     * to reset the session state regarding address information, for instance, after a user logs out,
+     * or when starting a new checkout process.
+     *
+     * @param array $args An array of arguments for the method. Currently, this parameter is not used
+     *                    within the function, but is included to allow for future extensibility without
+     *                    changing the method signature.
+     * @return void This method does not return any value.
+     */
+    public function clearMetaAndCacheFromSession(array $args): void
+    {
+        unset($_SESSION['EnderecoBillingAddressMeta']);
+        unset($_SESSION['EnderecoShippingAddressMeta']);
+        unset($_SESSION['EnderecoRequestCache']);
+    }
+
+    /**
      * Determines if the PayPal Express Checkout check is active based on the plugin configuration.
      *
      * @return bool Returns true if the PayPal Express Checkout check is enabled in the plugin settings,
@@ -123,9 +143,21 @@ class MetaHandler
         return !empty($postVariables['enderecoamsstatus']);
     }
 
-
-
-
+    /**
+     * Checks if the shipping address metadata is present in the provided POST variables.
+     *
+     * This method assesses whether metadata specific to shipping addresses (e.g., validation status)
+     * is available in the POST request data.
+     *
+     * @param array $postVariables The array of POST variables, typically $_POST, to check for address metadata.
+     * @return bool Returns true if shipping address metadata is present, false otherwise.
+     */
+    private function hasShippingAddressMeta(array $postVariables): bool
+    {
+        // Check for the presence of the 'enderecodeliveryamsstatus' key in the POST variables
+        // This key represents a part of the shipping address metadata
+        return !empty($postVariables['enderecodeliveryamsstatus']);
+    }
 
     /**
      * Saves metadata submitted from a form into the database.
@@ -137,6 +169,7 @@ class MetaHandler
      */
     public function saveMetaFromSubmitInDatabase(array $args): void
     {
+
         // Return early if the request method is not POST
         if ('POST' !== $_SERVER['REQUEST_METHOD']) {
             return;
@@ -208,6 +241,105 @@ class MetaHandler
     }
 
     /**
+     * Saves metadata submitted from a form into the database.
+     *
+     * This method handles different scenarios where address metadata is submitted via POST request,
+     * such as editing billing or delivery addresses. It updates the database with the new metadata.
+     *
+     * @param array $args Contextual arguments that may affect how metadata is saved, like page type or customer ID.
+     */
+    public function saveMetaFromSubmitInCache(array $args): void
+    {
+
+        // Return early if the request method is not POST
+        if ('POST' !== $_SERVER['REQUEST_METHOD']) {
+            return;
+        }
+
+        // Handling the scenario when saving the billing address during the checkout process
+        if (\PAGE_BESTELLVORGANG === $args['pageType'] && $this->hasBillingAddressMeta($_POST)) {
+            // Update the billing address metadata in session variable
+            $address = $this->extractBillingAddressFromPost($_POST);
+            $this->enderecoService->updateAddressMetaInCache(
+                $address,
+                $_POST['enderecoamsstatus'],
+                $_POST['enderecoamspredictions']
+            );
+        }
+
+        if (\PAGE_BESTELLVORGANG === $args['pageType'] && $this->hasShippingAddressMeta($_POST)) {
+            // Update the shipping address metadata in session variable
+            $address = $this->extractShippingAddressFromPost($_POST);
+            $this->enderecoService->updateAddressMetaInCache(
+                $address,
+                $_POST['enderecodeliveryamsstatus'],
+                $_POST['enderecodeliveryamspredictions']
+            );
+        }
+    }
+
+    /**
+     * Extracts billing address information from a post request variable.
+     *
+     * This method parses a given post request variable array to extract billing address
+     * details, including country code, postal code, locality (city), street name,
+     * building number, and any additional address information if available. It expects
+     * each piece of address information to be provided under specific keys.
+     *
+     * @param array $postVariable The post request variable containing billing address information.
+     *                            Expected keys are 'land' (country code), 'plz' (postal code),
+     *                            'ort' (locality), 'strasse' (street name), 'hausnummer' (building number),
+     *                            and 'adresszusatz' (additional info), which is optional.
+     * @return array An associative array containing the extracted billing address, formatted
+     *               with keys as 'countryCode', 'postalCode', 'locality', 'streetName',
+     *               'buildingNumber', and 'additionalInfo'.
+     */
+    public function extractBillingAddressFromPost($postVariable)
+    {
+        $address = [
+            'countryCode' => strtoupper($postVariable['land']),
+            'postalCode' => $postVariable['plz'],
+            'locality' => $postVariable['ort'],
+            'streetName' => $postVariable['strasse'],
+            'buildingNumber' => $postVariable['hausnummer'],
+            'additionalInfo' => $postVariable['adresszusatz'] ?? ''
+        ];
+
+        return $address;
+    }
+
+    /**
+     * Extracts shipping address information from a nested structure within a post request variable.
+     *
+     * Similar to the billing address extraction, this method focuses on extracting shipping
+     * address details from a nested array structure within the given post request variable.
+     * It requires the shipping address to be located under 'register' and then 'shipping_address',
+     * with specific keys for each piece of address information.
+     *
+     * @param array $postVariable The post request variable containing nested shipping address
+     *                            information. Expected structure is $postVariable['register']['shipping_address']
+     *                            with keys 'land' (country code), 'plz' (postal code), 'ort' (locality),
+     *                            'strasse' (street name), 'hausnummer' (building number), and
+     *                            'adresszusatz' (additional info), which is optional.
+     * @return array An associative array containing the extracted shipping address, with keys
+     *               as 'countryCode', 'postalCode', 'locality', 'streetName', 'buildingNumber',
+     *               and 'additionalInfo'.
+     */
+    public function extractShippingAddressFromPost($postVariable)
+    {
+        $address = [
+            'countryCode' => strtoupper($postVariable['register']['shipping_address']['land']),
+            'postalCode' => $postVariable['register']['shipping_address']['plz'],
+            'locality' => $postVariable['register']['shipping_address']['ort'],
+            'streetName' => $postVariable['register']['shipping_address']['strasse'],
+            'buildingNumber' => $postVariable['register']['shipping_address']['hausnummer'],
+            'additionalInfo' => $postVariable['register']['shipping_address']['adresszusatz'] ?? ''
+        ];
+
+        return $address;
+    }
+
+    /**
      * Processes the address check for a given address object.
      *
      * This method checks the address using the enderecoService, applies any automatic corrections,
@@ -223,7 +355,7 @@ class MetaHandler
         $checkResult = $this->enderecoService->checkAddress($address);
 
         // Apply automatic corrections if necessary and update the address
-        if ($checkResult->isAutomaticCorrection()) {
+        if ($checkResult->isAutomaticCorrection() && !$checkResult->isConfirmedByCustomer()) {
             $addressMeta = $checkResult->getMetaAfterAutomaticCorrection();
             $address = $this->enderecoService->applyAutocorrection($address, $checkResult);
             $this->enderecoService->updateAddressInSession($address);
@@ -275,6 +407,9 @@ class MetaHandler
         } elseif ($this->isExistingCustomerCheckActive()) {
             // Process address check for a guest customer
             $addressMeta = $this->processAddressCheck($customer);
+        } else {
+            // Try to load from cache
+            die("load from cache");
         }
 
         // Update the address metadata in the session
@@ -356,14 +491,19 @@ class MetaHandler
      */
     public function loadMetaFromDatabase(array $args): void
     {
+        // Clear any existing metadata from the session. But only once.
+        if (!$this->operationProcessed) {
+            $this->enderecoService->clearMetaFromSession();
+            $this->operationProcessed = true;
+        }
+
         // Handling the scenario when editing the billing address in "My account" (optionally the shipping too)
         if (!empty($_GET['editRechnungsadresse'])) {
-            // Clear any existing metadata from the session
-            $this->enderecoService->clearMetaFromSession();
-
             // Load billing address metadata for the current customer
             $customer = $_SESSION['Kunde'];
-            $this->loadBillingAddressMetaToSession($customer);
+            if ($customer) {
+                $this->loadBillingAddressMetaToSession($customer);
+            }
 
             // If a delivery address is set in the session, load its metadata as well
             if (
@@ -377,9 +517,13 @@ class MetaHandler
             }
         }
 
-        if (!empty($_GET['editLieferadresse'])) {
-            // Clear any existing metadata from the session
-            $this->enderecoService->clearMetaFromSession();
+        // Handling the case of being in checkout after clicking on "edit delivery address" in payment page.
+        if (!empty($_GET['editLieferadresse']) && (\HOOK_BESTELLVORGANG_PAGE === (int) $args[0])) {
+            $customer = $_SESSION['Kunde'];
+            $this->loadBillingAddressMetaToSession($customer);
+
+            $deliveryAddress = $_SESSION['Lieferadresse'];
+            $this->loadShippingAddressMetaToSession($deliveryAddress);
         }
 
         // Handling the scenario when editing a specific delivery address in "My account"
@@ -390,11 +534,8 @@ class MetaHandler
             $this->loadShippingAddressMetaToSession($deliveryAddress);
         }
 
-        // Handling the scenario in "Checkout" on the last page
+        // Handling the scenario in "Checkout" on the last page.
         if (\HOOK_BESTELLVORGANG_PAGE_STEPBESTAETIGUNG === (int) $args[0]) {
-            // Clear any existing metadata from the session
-            $this->enderecoService->clearMetaFromSession();
-
             // Load billing address metadata for the current customer
             $this->loadBillingAddressMetaToSession($_SESSION['Kunde']);
 

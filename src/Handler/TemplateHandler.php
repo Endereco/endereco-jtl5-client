@@ -3,15 +3,16 @@
 namespace Plugin\endereco_jtl5_client\src\Handler;
 
 use InvalidArgumentException;
-use JTL\phpQuery\phpQuery;
 use JTL\Plugin\PluginInterface;
-use JTL\Shop;
+use JTL\Services\JTL\AlertServiceInterface;
 use JTL\phpQuery\phpQueryObject;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Services\JTL\CryptoService;
 use JTL\Smarty\JTLSmarty;
 use JTL\Template\TemplateService;
 use JTL\DB\NiceDB;
+use Illuminate\Support\Collection;
+use JTL\Alert\Alert;
 
 class TemplateHandler
 {
@@ -20,11 +21,14 @@ class TemplateHandler
     private CryptoService $cryptoService;
     private TemplateService $templateService;
     private NiceDB $dbConnection;
+    private AlertServiceInterface $alertService;
 
     private const TEMPLATE_BILLING_FORM_META = __DIR__ . '/../../smarty_templates/billing_ams_initiation.tpl';
     private const TEMPLATE_SHIPPING_FORM_META = __DIR__ . '/../../smarty_templates/shipping_ams_initiation.tpl';
     private const TEMPLATE_CHECKOUT_FAKE_BILLING_FORM = __DIR__ . '/../../smarty_templates/fake_billing_address.tpl';
     private const TEMPLATE_CHECKOUT_FAKE_SHIPPING_FORM = __DIR__ . '/../../smarty_templates/fake_shipping_address.tpl';
+    private const TEMPLATE_PAYPAL_SPECIAL_LISTENER
+        = __DIR__ . '/../../smarty_templates/paypal_checkout_special_listener.tpl';
     private const TEMPLATE_CONFIG = __DIR__ . '/../../smarty_templates/config.tpl';
     private const TEMPLATE_JS_BUNDLE = __DIR__ . '/../../smarty_templates/load_js.tpl';
 
@@ -33,13 +37,15 @@ class TemplateHandler
         EnderecoService $enderecoService,
         CryptoService $cryptoService,
         TemplateService $templateService,
-        NiceDB $dbConnection
+        NiceDB $dbConnection,
+        AlertServiceInterface $alertService
     ) {
         $this->plugin = $plugin;
         $this->enderecoService = $enderecoService;
         $this->cryptoService = $cryptoService;
         $this->templateService = $templateService;
         $this->dbConnection = $dbConnection;
+        $this->alertService = $alertService;
     }
 
     /**
@@ -214,8 +220,8 @@ class TemplateHandler
         }
 
         $smarty->assign('endereco_amsts', $timestamp)
-               ->assign('endereco_amsstatus', $status)
-               ->assign('endereco_amspredictions', $predictionsSerialized);
+            ->assign('endereco_amsstatus', $status)
+            ->assign('endereco_amspredictions', $predictionsSerialized);
 
         $file = self::TEMPLATE_BILLING_FORM_META;
         $html = $smarty->fetch($file);
@@ -310,15 +316,15 @@ class TemplateHandler
         $agentInfo = "Endereco JTL5 Client v" . $this->plugin->getMeta()->getVersion();
 
         $smarty->assign('endereco_theme_name', strtolower($templateName))
-               ->assign('endereco_plugin_config', $this->plugin->getConfig())
-               ->assign('endereco_locales', $this->plugin->getLocalization())
-               ->assign('endereco_plugin_ver', $this->plugin->getMeta()->getVersion())
-               ->assign('endereco_agent_info', $agentInfo)
-               ->assign('endereco_api_url', $pluginIOPath)
-               ->assign(
-                   'endereco_jtl5_client_country_mapping',
-                   str_replace('\'', '\\\'', json_encode($countryMapping))
-               );
+            ->assign('endereco_plugin_config', $this->plugin->getConfig())
+            ->assign('endereco_locales', $this->plugin->getLocalization())
+            ->assign('endereco_plugin_ver', $this->plugin->getMeta()->getVersion())
+            ->assign('endereco_agent_info', $agentInfo)
+            ->assign('endereco_api_url', $pluginIOPath)
+            ->assign(
+                'endereco_jtl5_client_country_mapping',
+                str_replace('\'', '\\\'', json_encode($countryMapping))
+            );
 
         $html = $smarty->fetch(self::TEMPLATE_CONFIG);
         $document->find('head')->prepend($html);
@@ -529,5 +535,73 @@ class TemplateHandler
         );
 
         $this->includeSDK($document, $smarty);
+    }
+
+    /**
+     * Adds a special PayPal checkout listener to the page.
+     *
+     * This method initializes the process of adding a special PayPal checkout listener, if the
+     * `enderecoService` is ready. It prepares necessary data and delegates the actual insertion
+     * of the listener script into the page to `addSpecialPayPalCheckoutListenerScript`.
+     *
+     * @param array $args An associative array containing setup arguments. Expected keys are:
+     *                    - 'smarty': An instance of JTLSmarty, used for template rendering.
+     *                    - 'document': An instance of phpQueryObject, representing the HTML document
+     *                      to which the listener script will be added.
+     * @return void The method does not return a value. It either triggers the addition of the
+     *              PayPal checkout listener script or exits without action if the `enderecoService`
+     *              is not ready.
+     */
+    public function addSpecialPayPalCheckoutListener(array $args)
+    {
+        // Set variables.
+        $smarty = $args['smarty'];
+        $document = $args['document'];
+
+        if (!$this->enderecoService->isReady()) {
+            return;
+        }
+
+        $this->addSpecialPayPalCheckoutListenerScript(
+            $document,
+            $smarty
+        );
+    }
+
+    /**
+     * Inserts the special PayPal checkout listener script into the HTML document.
+     *
+     * Called internally by `addSpecialPayPalCheckoutListener`, this method checks for relevant alerts
+     * (e.g., missing payer data) and, if necessary, fetches and prepends the PayPal listener script
+     * to a specific element in the document. This script enhances or modifies the PayPal checkout
+     * experience based on the current state or needs (like alert conditions).
+     *
+     * @param phpQueryObject $document A phpQueryObject representing the HTML document to modify.
+     * @param JTLSmarty $smarty An instance of JTLSmarty used to render the script template.
+     *
+     * @return void This method does not return a value. It directly modifies the passed `$document`
+     *              by potentially prepending the PayPal listener script.
+     */
+    private function addSpecialPayPalCheckoutListenerScript(
+        phpQueryObject $document,
+        JTLSmarty $smarty
+    ): void {
+
+        /** @var Collection $alertList */
+        $alertList = $this->alertService->getAlertlist();
+        $hasRelevantAlert = false;
+
+        foreach ($alertList as $alert) {
+
+            /** @var Alert $alert */
+            if (in_array($alert->getKey(), ['missingPayerData'])) {
+                $hasRelevantAlert = true;
+            }
+        }
+
+        if ($hasRelevantAlert) {
+            $html = $smarty->fetch(self::TEMPLATE_PAYPAL_SPECIAL_LISTENER);
+            $document->find('#form-register')->prepend($html);
+        }
     }
 }

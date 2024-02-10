@@ -39,6 +39,32 @@ class AddressCheckResult
         return $newPredictions;
     }
 
+    public function transformPredictionsToOuterFormat(array $predictions): array
+    {
+        $newPredictions = [];
+        $mapping = [
+            'postalCode' => 'postCode',
+            'countryCode' => 'country',
+            'locality' => 'cityName',
+            'streetName' => 'street',
+            'buildingNumber' => 'houseNumber'
+        ];
+
+        foreach ($predictions as $prediction) {
+            $newPrediction = [];
+            foreach ($prediction as $key => $value) {
+                if (array_key_exists($key, $mapping)) {
+                    $newPrediction[$mapping[$key]] = $value;
+                } else {
+                    $newPrediction[$key] = $value;
+                }
+            }
+            $newPredictions[] = $newPrediction;
+        }
+
+        return $newPredictions;
+    }
+
     public function digestResponse(array $response): void
     {
         if (!array_key_exists('result', $response)) {
@@ -54,6 +80,11 @@ class AddressCheckResult
     public function isAutomaticCorrection(): bool
     {
         return in_array('address_minor_correction', $this->statuses);
+    }
+
+    public function isConfirmedByCustomer(): bool
+    {
+        return in_array('address_selected_by_customer', $this->statuses);
     }
 
     public function getMeta(): \stdClass
