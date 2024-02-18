@@ -621,7 +621,7 @@ class EnderecoService
 
         if (!empty($order->kLieferadresse)) {
             if (
-                $_SESSION['EnderecoShippingAddressMeta'] &&
+                !empty($_SESSION['EnderecoShippingAddressMeta']) &&
                 !empty($_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
             ) {
                 $addressMeta->enderecoamsstatus = $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'];

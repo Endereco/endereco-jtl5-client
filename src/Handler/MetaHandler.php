@@ -169,7 +169,6 @@ class MetaHandler
      */
     public function saveMetaFromSubmitInDatabase(array $args): void
     {
-
         // Return early if the request method is not POST
         if ('POST' !== $_SERVER['REQUEST_METHOD']) {
             return;
@@ -181,9 +180,9 @@ class MetaHandler
 
         // Handling the scenario when saving the billing address in "My account"
         if (!empty($_GET['editRechnungsadresse']) && $this->hasBillingAddressMeta($_POST)) {
-            $customer = $_SESSION['Kunde'];
+            $customer = $_SESSION['Kunde'] ?? null;
             // Update the billing address metadata if the customer exists
-            if (!empty($customer->kKunde)) {
+            if (!empty($customer) && !empty($customer->kKunde)) {
                 $this->enderecoService->updateAddressMetaInDB(
                     $customer,
                     $_POST['enderecoamsts'],
@@ -197,9 +196,9 @@ class MetaHandler
 
         // Handling the scenario when saving the billing address during the checkout process
         if (\PAGE_BESTELLVORGANG === $args['pageType'] && $this->hasBillingAddressMeta($_POST)) {
-            $customer = $_SESSION['Kunde'];
+            $customer = $_SESSION['Kunde'] ?? null;
             // Update the billing address metadata if the customer exists
-            if (!empty($customer->kKunde)) {
+            if (!empty($customer) && !empty($customer->kKunde)) {
                 $this->enderecoService->updateAddressMetaInDB(
                     $customer,
                     $_POST['enderecoamsts'],
