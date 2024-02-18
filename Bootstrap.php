@@ -1,4 +1,5 @@
 <?php
+
 namespace Plugin\endereco_jtl5_client;
 
 use JTL\DB\DbInterface;
@@ -104,33 +105,99 @@ class Bootstrap extends Bootstrapper
         );
 
         // Extend the templates with necessary template extensions.
-        $dispatcher->listen('shop.hook.' . \HOOK_SMARTY_OUTPUTFILTER, [$templateHandler, 'generalTemplateIntegration']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_SMARTY_OUTPUTFILTER,
+            [
+                $templateHandler, 'generalTemplateIntegration'
+            ]
+        );
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_SMARTY_OUTPUTFILTER,
+            [
+                $templateHandler, 'addSpecialPayPalCheckoutListener'
+            ]
+        );
 
         // Register io request listeners.
-        $dispatcher->listen('shop.hook.' . \HOOK_IO_HANDLE_REQUEST, [$ajaxHandler, 'registerAjaxMethods']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_IO_HANDLE_REQUEST,
+            [
+                $ajaxHandler, 'registerAjaxMethods'
+            ]
+        );
 
         // Clear address meta from session, when loading registration page.
-        $dispatcher->listen('shop.hook.' . \HOOK_REGISTRIEREN_PAGE, [$metaHandler, 'clearMetaFromSession']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_REGISTRIEREN_PAGE,
+            [
+                $metaHandler, 'clearMetaFromSession'
+            ]
+        );
 
         // Close sessions.
-        $dispatcher->listen('shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE, [$sessionHandler, 'closeSessions']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE,
+            [
+                $sessionHandler, 'closeSessions'
+            ]
+        );
 
         // Save meta from submit in the database.
         if (defined('HOOK_REGISTRATION_CUSTOMER_CREATED')) {
-            $dispatcher->listen('shop.hook.' . \HOOK_REGISTRATION_CUSTOMER_CREATED, [$metaHandler, 'saveMetaFromSubmitInDatabase']);
+            $dispatcher->listen(
+                'shop.hook.' . \HOOK_REGISTRATION_CUSTOMER_CREATED,
+                [
+                    $metaHandler, 'saveMetaFromSubmitInDatabase'
+                ]
+            );
         }
-        $dispatcher->listen('shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE, [$metaHandler, 'saveMetaFromSubmitInDatabase']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE,
+            [
+                $metaHandler, 'saveMetaFromSubmitInDatabase'
+            ]
+        );
 
         // Load meta from database into session.
-        $dispatcher->listen('shop.hook.' . \HOOK_JTL_PAGE, [$metaHandler, 'loadMetaFromDatabase']);
-        $dispatcher->listen('shop.hook.' . \HOOK_BESTELLVORGANG_PAGE, [$metaHandler, 'loadMetaFromDatabase']);
-        $dispatcher->listen('shop.hook.' . \HOOK_BESTELLVORGANG_PAGE_STEPBESTAETIGUNG, [$metaHandler, 'loadMetaFromDatabase']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_JTL_PAGE,
+            [
+                $metaHandler, 'loadMetaFromDatabase'
+            ]
+        );
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_BESTELLVORGANG_PAGE,
+            [
+                $metaHandler, 'loadMetaFromDatabase'
+            ]
+        );
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_BESTELLVORGANG_PAGE_STEPBESTAETIGUNG,
+            [
+                $metaHandler, 'loadMetaFromDatabase'
+            ]
+        );
 
         // Save attributes.
-        $dispatcher->listen('shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE, [$attributeHandler, 'saveOrderAttribute']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE,
+            [
+                $attributeHandler, 'saveOrderAttribute'
+            ]
+        );
 
         // Extend comment.
-        $dispatcher->listen('shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE, [$commentHandler, 'extendOrderComment']);
-        $dispatcher->listen('shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE, [$metaHandler, 'clearMetaAndCacheFromSession']);
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE,
+            [
+                $commentHandler, 'extendOrderComment'
+            ]
+        );
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_BESTELLABSCHLUSS_INC_BESTELLUNGINDB_ENDE,
+            [
+                $metaHandler, 'clearMetaAndCacheFromSession'
+            ]
+        );
     }
 }

@@ -46,7 +46,7 @@ EnderecoIntegrator.resolvers.countryCodeWrite = function(value) {
 }
 EnderecoIntegrator.resolvers.countryCodeRead = function(value) {
     return new Promise(function(resolve, reject) {
-        resolve(value.toLowerCase());
+        resolve(value.toUpperCase());
     });
 }
 EnderecoIntegrator.resolvers.salutationWrite = function(value) {
