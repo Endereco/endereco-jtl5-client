@@ -6,16 +6,16 @@
     {literal}
     enderecoInitAMS(
         {
-            countryCode: 'register[shipping_address][land]',
-            postalCode: 'register[shipping_address][plz]',
-            locality: 'register[shipping_address][ort]',
+            countryCode: '[name="register[shipping_address][land]"]',
+            postalCode: '[name="register[shipping_address][plz]"]',
+            locality: '[name="register[shipping_address][ort]"]',
             streetFull: '',
-            streetName: 'register[shipping_address][strasse]',
-            buildingNumber: 'register[shipping_address][hausnummer]',
-            addressStatus: 'enderecodeliveryamsstatus',
-            addressTimestamp: 'enderecodeliveryamsts',
-            addressPredictions: 'enderecodeliveryamspredictions',
-            additionalInfo: 'register[shipping_address][adresszusatz]',
+            streetName: '[name="register[shipping_address][strasse]"]',
+            buildingNumber: '[name="register[shipping_address][hausnummer]"]',
+            addressStatus: '[name="enderecodeliveryamsstatus"]',
+            addressTimestamp: '[name="enderecodeliveryamsts"]',
+            addressPredictions: '[name="enderecodeliveryamspredictions"]',
+            additionalInfo: '[name="register[shipping_address][adresszusatz]"]',
         },
         {
             name: 'shipping_address',

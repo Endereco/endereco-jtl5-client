@@ -605,7 +605,8 @@ class EnderecoService
     /**
      * Retrieves metadata related to an order's address.
      *
-     * Fetches address metadata such as status, predictions, and timestamps from session data
+     * Fetches address metadata such as status, pred
+     * ictions, and timestamps from session data
      * based on whether the order has a delivery address or uses the customer's address.
      *
      * @param Bestellung $order The order for which address metadata is required.
