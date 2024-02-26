@@ -8,7 +8,7 @@
     <XMLVersion>101</XMLVersion>
     <MinShopVersion>5.1.2</MinShopVersion>
     <CreateDate>2021-03-24</CreateDate>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <ExsID>f9cb7819-9dad-4a4f-8aea-fcca10d6b59c</ExsID>
     <Install>
         <FlushTags>CACHING_GROUP_TEMPLATE</FlushTags>
