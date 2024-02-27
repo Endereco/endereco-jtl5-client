@@ -7,13 +7,36 @@
         }
     ],
     "require": {
-      "ext-curl": "*",
-      "ext-json": "*"
+        "ext-curl": "*",
+        "ext-json": "*"
     },
-    "scripts":  {
-        "qa": "phpcs --standard=PSR12 --ignore=vendor/ --ignore=node_modules/ ./src ./Bootstrap.php"
+    "scripts": {
+        "qa": [
+            "@phpcs",
+            "@phpcompat"
+        ],
+        "phpcs": "phpcs --standard=PSR12 --ignore=vendor/ --ignore=node_modules/ ./src ./Bootstrap.php",
+        "phpcompat": "bash test_php_versions.sh",
+        "post-install-cmd": [
+            "chmod +x test_php_versions.sh",
+            "chmod +x build.sh",
+            "cghooks add --ignore-lock"
+        ],
+        "post-update-cmd": [
+            "chmod +x test_php_versions.sh",
+            "chmod +x build.sh",
+            "cghooks update"
+        ]
     },
     "require-dev": {
-        "squizlabs/php_codesniffer": "3.7.2"
+        "squizlabs/php_codesniffer": "3.7.2",
+        "brainmaestro/composer-git-hooks": "^2.8"
+    },
+    "extra": {
+        "hooks": {
+            "pre-commit": [
+                "composer qa"
+            ]
+        }
     }
 }

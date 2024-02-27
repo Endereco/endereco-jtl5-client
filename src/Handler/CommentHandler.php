@@ -62,10 +62,10 @@ class CommentHandler
      *
      * @param Bestellung $order The order object from which to extract the address.
      *
-     * @return Lieferadresse|Rechnungsadresse Returns the delivery address if available, otherwise returns the
+     * @return mixed Returns the delivery address if available, otherwise returns the
      *                                        billing address from the order.
      */
-    private function getDeliveryAddressFromOrder(Bestellung $order): Lieferadresse|Rechnungsadresse
+    private function getDeliveryAddressFromOrder(Bestellung $order): mixed
     {
         if ($order->kLieferadresse) {
             $address = new Lieferadresse($order->kLieferadresse);

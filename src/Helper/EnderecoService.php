@@ -110,13 +110,22 @@ class EnderecoService
      * In case of an error during the process, the method should handle the exception
      * appropriately (currently marked as TODO).
      *
-     * @param Customer|Lieferadresse|DeliveryAddressTemplate $address The address to be checked.
+     * @param mixed $address The address to be checked.
      *
      * @return AddressCheckResult The result of the address check, encapsulated in an AddressCheckResult object.
      */
-    public function checkAddress(
-        Customer|Lieferadresse|DeliveryAddressTemplate $address
-    ): AddressCheckResult {
+    public function checkAddress($address): AddressCheckResult
+    {
+        if (
+            !$address instanceof Lieferadresse
+            && !$address instanceof DeliveryAddressTemplate
+            && !$address instanceof Customer
+        ) {
+            throw new InvalidArgumentException(
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
+            );
+        }
+
         // Load config.
         $config = $this->plugin->getConfig();
 
@@ -189,13 +198,22 @@ class EnderecoService
      * address line (`cAdressZusatz`). The method handles different address formats by checking if the house
      * number is provided and adjusts the request message accordingly.
      *
-     * @param Customer|Lieferadresse|DeliveryAddressTemplate $address The address object to look up in the cache.
+     * @param mixed $address The address object to look up in the cache.
      *
      * @return AddressCheckResult An instance of AddressCheckResult that contains the outcome of
      *                            the address check or nothing.
      */
-    public function lookupInCache(Customer|Lieferadresse|DeliveryAddressTemplate $address): AddressCheckResult
+    public function lookupInCache($address): AddressCheckResult
     {
+        if (
+            !$address instanceof Lieferadresse
+            && !$address instanceof DeliveryAddressTemplate
+            && !$address instanceof Customer
+        ) {
+            throw new InvalidArgumentException(
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
+            );
+        }
         // Create address check result.
         $addressCheckResult = new AddressCheckResult();
 
@@ -261,12 +279,18 @@ class EnderecoService
     /**
      * Updates the address in the database.
      *
-     * @param Customer|DeliveryAddressTemplate $addressObject The address object to be updated.
+     * @param mixed $addressObject The address object to be updated.
      *
      * @return void
      */
-    public function updateAddressInDB(Customer|DeliveryAddressTemplate $addressObject): void
+    public function updateAddressInDB($addressObject): void
     {
+        if (!$address instanceof DeliveryAddressTemplate && !$address instanceof Customer) {
+            throw new InvalidArgumentException(
+                'Address must be of type DeliveryAddressTemplate or Customer'
+            );
+        }
+
         if ($addressObject instanceof Customer) {
             $addressObject->updateInDB();
         } else {
@@ -311,15 +335,25 @@ class EnderecoService
      * check result and the corresponding properties in the address object. Only the fields present
      * in the autocorrection result are updated.
      *
-     * @param Customer|Lieferadresse|DeliveryAddressTemplate $addressObject The original address object to be corrected.
+     * @param mixed $addressObject The original address object to be corrected.
      * @param AddressCheckResult $checkResult The result from the address check containing potential corrections.
      *
      * @return Customer|Lieferadresse|DeliveryAddressTemplate The address object after applying the corrections.
      */
     public function applyAutocorrection(
-        Customer|Lieferadresse|DeliveryAddressTemplate $addressObject,
+        $addressObject,
         AddressCheckResult $checkResult
-    ): Customer|Lieferadresse|DeliveryAddressTemplate {
+    ): mixed {
+        if (
+            !$addressObject instanceof Lieferadresse
+            && !$addressObject instanceof DeliveryAddressTemplate
+            && !$addressObject instanceof Customer
+        ) {
+            throw new InvalidArgumentException(
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
+            );
+        }
+
         if ($checkResult->isAutomaticCorrection()) {
             $correctionArray = $checkResult->getAutocorrectionArray();
             $mapping = [
@@ -358,16 +392,16 @@ class EnderecoService
      * the given `space`.
      *
      * @param string $timestamp The timestamp associated with the address update.
-     * @param string|array $statuses The status or an array of statuses related to the address.
-     * @param string|array $predictions The prediction or an array of predictions related to the address.
+     * @param mixed  $statuses The status or an array of statuses related to the address.
+     * @param mixed  $predictions The prediction or an array of predictions related to the address.
      * @param string $space The session key under which the address metadata is stored.
      *
      * @return void
      */
     public function updateAddressMetaInSession(
         string $timestamp,
-        string|array $statuses,
-        string|array $predictions,
+        $statuses,
+        $predictions,
         string $space
     ): void {
         if (is_array($statuses)) {
@@ -404,18 +438,18 @@ class EnderecoService
      * @param array $addressData An associative array containing address components, such as
      *                           'countryCode', 'postalCode', 'locality', 'buildingNumber', 'streetName',
      *                           and optionally 'additionalInfo'.
-     * @param string|array $statuses A single status or an array of statuses related to the address
+     * @param mixed $statuses A single status or an array of statuses related to the address
      *                               check. If a string is provided, it should contain statuses separated
      *                               by commas.
-     * @param string|array $predictions A JSON string or an array of prediction data. If a string is
+     * @param mixed $predictions A JSON string or an array of prediction data. If a string is
      *                                  provided, it is decoded into an array.
      * @return void The method does not return a value but updates the session cache with the constructed
      *              response.
      */
     public function updateAddressMetaInCache(
         array $addressData,
-        string|array $statuses,
-        string|array $predictions
+        $statuses,
+        $predictions
     ) {
         if (is_string($predictions)) {
             $predictions = json_decode($predictions, true);
@@ -579,20 +613,28 @@ class EnderecoService
      * provided. The function also sanitizes the input data to prevent XSS attacks before
      * inserting or updating the database record.
      *
-     * @param Customer|Lieferadresse|DeliveryAddressTemplate $addressObject An object representing either a customer
-     *                                                                      or a delivery address.
+     * @param mixed $addressObject An object representing either a customer or a delivery address.
      * @param string $timestamp The timestamp associated with the address update.
-     * @param string|array $statuses The status or an array of statuses related to the address.
-     * @param string|array $predictions The prediction or an array of predictions related to the address.
+     * @param mixed $statuses The status or an array of statuses related to the address.
+     * @param mixed $predictions The prediction or an array of predictions related to the address.
      *
      * @return void
      */
     public function updateAddressMetaInDB(
-        Customer|Lieferadresse|DeliveryAddressTemplate $addressObject,
+        $addressObject,
         string $timestamp,
-        string|array $statuses,
-        string|array $predictions
+        $statuses,
+        $predictions
     ): void {
+        if (
+            !$addressObject instanceof Lieferadresse
+            && !$addressObject instanceof DeliveryAddressTemplate
+            && !$addressObject instanceof Customer
+        ) {
+            throw new InvalidArgumentException(
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
+            );
+        }
         if (is_array($statuses)) {
             $statuses = implode(',', $statuses);
         }

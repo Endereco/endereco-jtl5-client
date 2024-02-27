@@ -344,12 +344,22 @@ class MetaHandler
      * This method checks the address using the enderecoService, applies any automatic corrections,
      * and updates the address in the session. It supports different types of address objects.
      *
-     * @param Lieferadresse|DeliveryAddressTemplate|Customer &$address The address object to be checked and updated.
+     * @param mixed &$address The address object to be checked and updated.
      *
      * @return \stdClass The address metadata after processing.
      */
-    private function processAddressCheck(Lieferadresse|DeliveryAddressTemplate|Customer &$address): \stdClass
+    private function processAddressCheck(&$address): \stdClass
     {
+        if (
+            !$address instanceof Lieferadresse
+            && !$address instanceof DeliveryAddressTemplate
+            && !$address instanceof Customer
+        ) {
+            throw new InvalidArgumentException(
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
+            );
+        }
+
         // Perform an address check using the endereco service
         $checkResult = $this->enderecoService->checkAddress($address);
 
@@ -379,13 +389,21 @@ class MetaHandler
      * validation status, suggestions for corrections, or any warnings or errors encountered during the
      * address check.
      *
-     * @param Lieferadresse|DeliveryAddressTemplate|Customer $address The address object for which the
-     *                                                                metadata is to be retrieved.
+     * @param mixed $address The address object for which the metadata is to be retrieved.
      *
      * @return \stdClass An object containing the metadata from the cached address check result.
      */
-    private function tryToLoadMetaFromCache(Lieferadresse|DeliveryAddressTemplate|Customer $address): \stdClass
+    private function tryToLoadMetaFromCache($address): \stdClass
     {
+        if (
+            !$address instanceof Lieferadresse
+            && !$address instanceof DeliveryAddressTemplate
+            && !$address instanceof Customer
+        ) {
+            throw new InvalidArgumentException(
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
+            );
+        }
         // Perform an address check using the endereco service
         $checkResult = $this->enderecoService->lookupInCache($address);
         $addressMeta = $checkResult->getMeta();
@@ -468,11 +486,14 @@ class MetaHandler
      * This method handles different scenarios such as existing customer checks and PayPal Express Checkout.
      * It updates the database and session with the shipping address metadata.
      *
-     * @param Lieferadresse|DeliveryAddressTemplate $deliveryAddress The delivery address whose metadata
-     *                                                               needs to be updated.
+     * @param mixed $deliveryAddress The delivery address whose metadata needs to be updated.
      */
-    private function loadShippingAddressMetaToSession(Lieferadresse|DeliveryAddressTemplate $deliveryAddress): void
+    private function loadShippingAddressMetaToSession($deliveryAddress): void
     {
+        if (!$deliveryAddress instanceof Lieferadresse && !$deliveryAddress instanceof DeliveryAddressTemplate) {
+            throw new InvalidArgumentException('Address must be of type Lieferadresse or DeliveryAddressTemplate');
+        }
+
         $addressMeta = null;
 
         // Query for existing metadata in the database
