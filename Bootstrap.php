@@ -158,6 +158,13 @@ class Bootstrap extends Bootstrapper
             ]
         );
 
+        $dispatcher->listen(
+            'shop.hook.' . \HOOK_SHOP_SET_PAGE_TYPE,
+            [
+                $metaHandler, 'saveMetaFromSubmitInCache'
+            ]
+        );
+
         // Load meta from database into session.
         $dispatcher->listen(
             'shop.hook.' . \HOOK_JTL_PAGE,

@@ -114,8 +114,9 @@ class EnderecoService
      *
      * @return AddressCheckResult The result of the address check, encapsulated in an AddressCheckResult object.
      */
-    public function checkAddress(Customer|Lieferadresse|DeliveryAddressTemplate $address): AddressCheckResult
-    {
+    public function checkAddress(
+        Customer|Lieferadresse|DeliveryAddressTemplate $address
+    ): AddressCheckResult {
         // Load config.
         $config = $this->plugin->getConfig();
 
@@ -146,9 +147,7 @@ class EnderecoService
                 $message['params']['houseNumber'] = html_entity_decode($address->cHausnummer);
             }
 
-            if (!is_null($address->cAdressZusatz)) {
-                $message['params']['additionalInfo'] = $address->cAdressZusatz;
-            }
+            $message['params']['additionalInfo'] = $address->cAdressZusatz ?? '';
 
             $newHeaders = array(
                 'Content-Type' => 'application/json',
@@ -158,19 +157,74 @@ class EnderecoService
                 'X-Agent' => $this->clientInfo,
             );
 
-            if (!isset($_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)])) {
-                $response = $this->sendRequest($message, $newHeaders);
+            $response = $this->sendRequest($message, $newHeaders);
 
-                // Send doAccounting and doConversion.
-                $this->doAccountings([$sessionId]);
+            // Send doAccounting and doConversion.
+            $this->doAccountings([$sessionId]);
+
+            if (array_key_exists('result', $response)) {
                 $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)] = $response;
             }
-
-            $response = $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)];
 
             $addressCheckResult->digestResponse($response);
         } catch (\Exception $e) {
             // TODO: log error
+        }
+
+        return $addressCheckResult;
+    }
+
+    /**
+     * Looks up the result of a previous address check in the cache.
+     *
+     * This method attempts to retrieve the result of a previous address verification process from a cache,
+     * based on the provided address object. It constructs a request message based on the address details,
+     * uses it to generate a unique cache key, and then checks if the cache (stored in the session
+     * under 'EnderecoRequestCache') contains a response corresponding to this key. If a cached response is
+     * found, it is used to create and return an AddressCheckResult object.
+     *
+     * The address parameter can be an instance of Customer, Lieferadresse, or DeliveryAddressTemplate. These
+     * objects must have properties for country code (`cLand`), postal code (`cPLZ`), city name (`cOrt`),
+     * street name (`cStrasse`), house number (`cHausnummer`), and optionally an additional
+     * address line (`cAdressZusatz`). The method handles different address formats by checking if the house
+     * number is provided and adjusts the request message accordingly.
+     *
+     * @param Customer|Lieferadresse|DeliveryAddressTemplate $address The address object to look up in the cache.
+     *
+     * @return AddressCheckResult An instance of AddressCheckResult that contains the outcome of
+     *                            the address check or nothing.
+     */
+    public function lookupInCache(Customer|Lieferadresse|DeliveryAddressTemplate $address): AddressCheckResult
+    {
+        // Create address check result.
+        $addressCheckResult = new AddressCheckResult();
+
+        // Create a fake meta.
+        $message = array(
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'addressCheck',
+            'params' => array(
+                'language' => 'de',
+                'country' => strtoupper($address->cLand),
+                'postCode' => html_entity_decode($address->cPLZ),
+                'cityName' => html_entity_decode($address->cOrt),
+            )
+        );
+
+        if (empty(trim($address->cHausnummer))) {
+            $message['params']['streetFull'] = html_entity_decode($address->cStrasse);
+        } else {
+            $message['params']['street'] = html_entity_decode($address->cStrasse);
+            $message['params']['houseNumber'] = html_entity_decode($address->cHausnummer);
+        }
+
+        $message['params']['additionalInfo'] = $address->cAdressZusatz ?? '';
+
+        $response = $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)] ?? null;
+
+        if (!empty($response)) {
+            $addressCheckResult->digestResponse($response);
         }
 
         return $addressCheckResult;

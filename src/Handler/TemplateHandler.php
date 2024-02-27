@@ -257,6 +257,10 @@ class TemplateHandler
             return;
         }
 
+        if (!$this->enderecoService->isBillingDifferentFromShipping()) {
+            return;
+        }
+
         if (empty($predictionsSerialized)) {
             $predictionsSerialized = '[]';
         }

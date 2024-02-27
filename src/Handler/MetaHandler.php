@@ -366,6 +366,33 @@ class MetaHandler
     }
 
     /**
+     * Attempts to retrieve metadata from a cached result of a previous address check.
+     *
+     * This method is designed to check if there is a cached result for an address check performed
+     * earlier, and if so, to retrieve the metadata associated with that result. It accepts an
+     * address object, which could be an instance of Lieferadresse, DeliveryAddressTemplate, or
+     * Customer. The method leverages the `lookupInCache` method of the `enderecoService` to perform
+     * this operation.
+     *
+     * If a cached result is found, the method extracts and returns the metadata part of the address
+     * check result. The metadata typically includes information about the validation process, such as
+     * validation status, suggestions for corrections, or any warnings or errors encountered during the
+     * address check.
+     *
+     * @param Lieferadresse|DeliveryAddressTemplate|Customer $address The address object for which the
+     *                                                                metadata is to be retrieved.
+     *
+     * @return \stdClass An object containing the metadata from the cached address check result.
+     */
+    private function tryToLoadMetaFromCache(Lieferadresse|DeliveryAddressTemplate|Customer $address): \stdClass
+    {
+        // Perform an address check using the endereco service
+        $checkResult = $this->enderecoService->lookupInCache($address);
+        $addressMeta = $checkResult->getMeta();
+        return $addressMeta;
+    }
+
+    /**
      * Loads billing address metadata into the session for a given customer.
      *
      * This method queries for existing metadata and updates it based on the customer's current billing
@@ -388,8 +415,16 @@ class MetaHandler
                 1
             );
 
+            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+            if ($isEmptyStatus) {
+                // Try to load from cache
+                $addressMeta = $this->tryToLoadMetaFromCache($customer);
+            }
+
+            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+
             // If no metadata is found and an existing customer check is active, process the address check
-            if (empty($addressMeta) && $this->isExistingCustomerCheckActive()) {
+            if ($isEmptyStatus && $this->isExistingCustomerCheckActive()) {
                 $addressMeta = $this->processAddressCheck($customer);
 
                 // Update address metadata in the database
@@ -404,11 +439,16 @@ class MetaHandler
             // Process address check for PayPal Express Checkout
             $addressMeta = $this->processAddressCheck($customer);
         } elseif ($this->isExistingCustomerCheckActive()) {
-            // Process address check for a guest customer
-            $addressMeta = $this->processAddressCheck($customer);
+            // Try to load from cache
+            $addressMeta = $this->tryToLoadMetaFromCache($customer);
+            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+            if ($isEmptyStatus) {
+                // Process address check for a guest customer
+                $addressMeta = $this->processAddressCheck($customer);
+            }
         } else {
             // Try to load from cache
-            die("load from cache");
+            $addressMeta = $this->tryToLoadMetaFromCache($customer);
         }
 
         // Update the address metadata in the session
@@ -445,8 +485,15 @@ class MetaHandler
                 1
             );
 
+            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+            if ($isEmptyStatus) {
+                // Try to load from cache
+                $addressMeta = $this->tryToLoadMetaFromCache($customer);
+            }
+
+            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
             // If no metadata is found and an existing customer check is active, process the address check
-            if (empty($addressMeta) && $this->isExistingCustomerCheckActive()) {
+            if ($isEmptyStatus && $this->isExistingCustomerCheckActive()) {
                 $addressMeta = $this->processAddressCheck($deliveryAddress);
 
                 // Update address metadata in the database
@@ -465,8 +512,16 @@ class MetaHandler
             // Process address check for PayPal Express Checkout with different billing and shipping addresses
             $addressMeta = $this->processAddressCheck($deliveryAddress);
         } elseif ($this->isExistingCustomerCheckActive() && $this->enderecoService->isBillingDifferentFromShipping()) {
-            // Process address check for a situation where billing and shipping addresses are different
-            $addressMeta = $this->processAddressCheck($deliveryAddress);
+            // Try to load from cache
+            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
+            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+            if ($isEmptyStatus) {
+                // Process address check for a situation where billing and shipping addresses are different
+                $addressMeta = $this->processAddressCheck($deliveryAddress);
+            }
+        } else {
+            // Try to load from cache
+            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
         }
 
         // Update the address metadata in the session
