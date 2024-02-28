@@ -3,8 +3,8 @@
 # Define PHP versions to test against
 versions=("7.4" "8.0" "8.1" "8.2" "8.3")
 
-# Find all PHP files in the current directory and subdirectories, excluding vendor and node_modules folders
-php_files=$(find . -type f -name "*.php" ! -path "./vendor/*" ! -path "./node_modules/*")
+# Find all PHP files in the current directory and subdirectories, excluding vendor, node_modules and shops folders
+php_files=$(find . -type f -name "*.php" ! -path "./vendor/*" ! -path "./node_modules/*" ! -path "./shops/*" )
 
 # Initialize a flag to track syntax errors
 syntax_error_found=0
@@ -21,7 +21,7 @@ do
         if [ $syntax_error_found -eq 1 ]; then
             break # Exit the file loop if an error is found
         fi
-        echo "Testing $file"
+        echo "Testing the syntax of $file"
         # Run PHP syntax check and capture the output
         output=$(docker run --rm -v "$(pwd)":/app -w /app php:$version-cli php -l $file)
         if [[ $output == *"Errors parsing"* ]]; then

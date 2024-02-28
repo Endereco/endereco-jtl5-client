@@ -7,10 +7,10 @@ use JTL\Plugin\PluginInterface;
 use JTL\Services\JTL\AlertServiceInterface;
 use JTL\phpQuery\phpQueryObject;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
-use JTL\Services\JTL\CryptoService;
 use JTL\Smarty\JTLSmarty;
-use JTL\Template\TemplateService;
+use JTL\Template\TemplateServiceInterface;
 use JTL\DB\NiceDB;
+use JTL\DB\DbInterface;
 use Illuminate\Support\Collection;
 use JTL\Alert\Alert;
 
@@ -18,9 +18,8 @@ class TemplateHandler
 {
     private PluginInterface $plugin;
     private EnderecoService $enderecoService;
-    private CryptoService $cryptoService;
-    private TemplateService $templateService;
-    private NiceDB $dbConnection;
+    private TemplateServiceInterface $templateService;
+    private DbInterface $dbConnection;
     private AlertServiceInterface $alertService;
 
     private const TEMPLATE_BILLING_FORM_META = __DIR__ . '/../../smarty_templates/billing_ams_initiation.tpl';
@@ -35,14 +34,12 @@ class TemplateHandler
     public function __construct(
         PluginInterface $plugin,
         EnderecoService $enderecoService,
-        CryptoService $cryptoService,
-        TemplateService $templateService,
-        NiceDB $dbConnection,
+        TemplateServiceInterface $templateService,
+        DbInterface $dbConnection,
         AlertServiceInterface $alertService
     ) {
         $this->plugin = $plugin;
         $this->enderecoService = $enderecoService;
-        $this->cryptoService = $cryptoService;
         $this->templateService = $templateService;
         $this->dbConnection = $dbConnection;
         $this->alertService = $alertService;
@@ -59,7 +56,7 @@ class TemplateHandler
      *
      * @param phpQueryObject $document The phpQuery object representing the DOM document.
      * @param string $selector The CSS selector used to find the target element in the document.
-     * @param array $containerAttributes An associative array of attributes for the error container.
+     * @param array<string,string> $containerAttributes An associative array of attributes for the error container.
      *                                  The array should contain key-value pairs where the key is
      *                                  the attribute name and the value is the attribute value.
      *                                  Both keys and values should be strings.
@@ -87,15 +84,12 @@ class TemplateHandler
     ): void {
         $attrString = "";
         foreach ($containerAttributes as $key => $value) {
-            if (!is_string($key) || !is_string($value)) {
-                throw new InvalidArgumentException("Invalid attribute format.");
-            }
             $attrString .= htmlspecialchars($key) . '="' . htmlspecialchars($value) . '" ';
         }
 
         // Check if the selector exists in the document
         $elements = $document->find($selector);
-        if ($elements->length === 0) {
+        if (count($elements) === 0) {
             return; // Exit if the selector is not found
         }
 
@@ -117,11 +111,11 @@ class TemplateHandler
      */
     private function hasBillingAddress(phpQueryObject $document): bool
     {
-        return $document->find('[name="land"]')->length
-            && $document->find('[name="plz"]')->length
-            && $document->find('[name="ort"]')->length
-            && $document->find('[name="strasse"]')->length
-            && $document->find('[name="hausnummer"]')->length;
+        return count($document->find('[name="land"]')) > 0
+            && count($document->find('[name="plz"]')) > 0
+            && count($document->find('[name="ort"]')) > 0
+            && count($document->find('[name="strasse"]')) > 0
+            && count($document->find('[name="hausnummer"]')) > 0;
     }
 
     /**
@@ -138,11 +132,11 @@ class TemplateHandler
      */
     private function hasShippingAddress(phpQueryObject $document): bool
     {
-        return $document->find('[name="register[shipping_address][land]"]')->length
-            && $document->find('[name="register[shipping_address][plz]"]')->length
-            && $document->find('[name="register[shipping_address][ort]"]')->length
-            && $document->find('[name="register[shipping_address][strasse]"]')->length
-            && $document->find('[name="register[shipping_address][hausnummer]"]')->length;
+        return count($document->find('[name="register[shipping_address][land]"]')) > 0
+            && count($document->find('[name="register[shipping_address][plz]"]')) > 0
+            && count($document->find('[name="register[shipping_address][ort]"]')) > 0
+            && count($document->find('[name="register[shipping_address][strasse]"]')) > 0
+            && count($document->find('[name="register[shipping_address][hausnummer]"]')) > 0;
     }
 
     /**
@@ -182,7 +176,7 @@ class TemplateHandler
         ];
         $anyFound = false;
         foreach ($markerElementSelectors as $markerElementSelector) {
-            $anyFound = $anyFound || ((bool) $document->find($markerElementSelector)->length);
+            $anyFound = $anyFound || (count($document->find($markerElementSelector)) > 0);
         }
 
         return $anyFound;
@@ -306,6 +300,10 @@ class TemplateHandler
             2
         );
 
+        if (!is_array($countries)) {
+            $countries = [];
+        }
+
         $countryMapping = [];
         foreach ($countries as $country) {
             if (!empty($_SESSION['cISOSprache']) && 'ger' === $_SESSION['cISOSprache']) {
@@ -319,6 +317,11 @@ class TemplateHandler
 
         $agentInfo = "Endereco JTL5 Client v" . $this->plugin->getMeta()->getVersion();
 
+        $countryMappingJSON = json_encode($countryMapping);
+        if (!$countryMappingJSON) {
+            $countryMappingJSON = '[]';
+        }
+
         $smarty->assign('endereco_theme_name', strtolower($templateName))
             ->assign('endereco_plugin_config', $this->plugin->getConfig())
             ->assign('endereco_locales', $this->plugin->getLocalization())
@@ -327,7 +330,7 @@ class TemplateHandler
             ->assign('endereco_api_url', $pluginIOPath)
             ->assign(
                 'endereco_jtl5_client_country_mapping',
-                str_replace('\'', '\\\'', json_encode($countryMapping))
+                str_replace('\'', '\\\'', $countryMappingJSON)
             );
 
         $html = $smarty->fetch(self::TEMPLATE_CONFIG);
@@ -465,7 +468,7 @@ class TemplateHandler
      * The method checks if the enderecoService is ready before proceeding with the integration.
      * It then utilizes session data for various address-related attributes to perform these integrations.
      *
-     * @param array $args An associative array containing 'smarty' (the Smarty template engine instance)
+     * @param array<string,mixed> $args An associative array containing 'smarty' (the Smarty template engine instance)
      *                    and 'document' (the HTML document to be modified).
      */
     public function generalTemplateIntegration(array $args): void
@@ -548,7 +551,7 @@ class TemplateHandler
      * `enderecoService` is ready. It prepares necessary data and delegates the actual insertion
      * of the listener script into the page to `addSpecialPayPalCheckoutListenerScript`.
      *
-     * @param array $args An associative array containing setup arguments. Expected keys are:
+     * @param array<string,mixed> $args An associative array containing setup arguments. Expected keys are:
      *                    - 'smarty': An instance of JTLSmarty, used for template rendering.
      *                    - 'document': An instance of phpQueryObject, representing the HTML document
      *                      to which the listener script will be added.
@@ -591,7 +594,7 @@ class TemplateHandler
         JTLSmarty $smarty
     ): void {
 
-        /** @var Collection $alertList */
+        /** @var Collection<int, Alert> $alertList */
         $alertList = $this->alertService->getAlertlist();
         $hasRelevantAlert = false;
 

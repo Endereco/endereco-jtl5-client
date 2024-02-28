@@ -69,7 +69,7 @@ class CommentHandler
     {
         if ($order->kLieferadresse) {
             $address = new Lieferadresse($order->kLieferadresse);
-        } elseif ($order->kKunde) {
+        } else {
             $address = new Rechnungsadresse($order->kRechnungsadresse);
         }
 
@@ -144,8 +144,8 @@ class CommentHandler
      * This method interprets prediction data for an address, comparing it with the original
      * address information, and generates advice for potential corrections.
      *
-     * @param array $predictions An array of predicted address components.
-     * @param Lieferadresse|Rechnungsadresse $address The original address object (either delivery or billing address).
+     * @param string $predictionsSerialized An array of predicted address components.
+     * @param mixed  $address               The original address object (either delivery or billing address).
      *
      * @return string A string containing advice for address corrections, if applicable.
      */
@@ -198,7 +198,7 @@ class CommentHandler
      * information about the address verification outcome, which can include the verification
      * status and suggested corrections.
      *
-     * @param array $args An associative array containing the order object (`oBestellung`). This array
+     * @param array<string,mixed> $args An associative array containing the order object (`oBestellung`). This array
      *                    is expected to have the structure ['oBestellung' => $orderObject], where
      *                    $orderObject is an instance of the Bestellung class.
      *

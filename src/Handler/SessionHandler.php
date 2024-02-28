@@ -33,7 +33,7 @@ class SessionHandler
      * ensures the operation is only processed once per request. When called, it delegates to the
      * enderecoService to find current sessions and performs accounting on them.
      *
-     * @param array $args An array of arguments, though not explicitly used in the method.
+     * @param array<mixed,mixed> $args An array of arguments, though not explicitly used in the method.
      */
     public function closeSessions(array $args): void
     {

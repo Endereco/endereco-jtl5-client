@@ -2,27 +2,27 @@
 
 namespace Plugin\endereco_jtl5_client\src\Handler;
 
-use JTL\Checkout\DeliveryAddressTemplate;
 use JTL\Checkout\Lieferadresse;
 use JTL\Customer\Customer;
 use JTL\Customer\DataHistory;
 use JTL\Helpers\Text;
 use JTL\DB\NiceDB;
+use JTL\DB\DbInterface;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 
 class AjaxHandler
 {
-    private NiceDB $dbConnection;
+    private DbInterface $dbConnection;
     private EnderecoService $enderecoService;
 
     /**
      * Constructs the AjaxHandler object.
      *
-     * @param NiceDB $dbConnection The database connection instance.
+     * @param DbInterface $dbConnection The database connection instance.
      * @param EnderecoService $enderecoService Then edereco service.
      */
     public function __construct(
-        NiceDB $dbConnection,
+        DbInterface $dbConnection,
         EnderecoService $enderecoService
     ) {
         $this->dbConnection = $dbConnection;
@@ -33,7 +33,7 @@ class AjaxHandler
      * Updates the address data.
      *
      * @param mixed $addressObject The address object to be updated.
-     * @param array $addressData The address data for the update.
+     * @param array<string, string> $addressData The address data for the update.
      *
      * @return mixed Updated address object.
      */
@@ -55,10 +55,11 @@ class AjaxHandler
         return $addressObject;
     }
 
+
     /**
      * Updates the billing address.
      *
-     * @param array $params Parameters containing customerId, updatedAddress, and enderecometa.
+     * @param array<mixed,mixed> $params Parameters containing customerId, updatedAddress, and enderecometa.
      *
      * @return void
      */
@@ -120,7 +121,7 @@ class AjaxHandler
      * (if a preset is known) and also in the current session. Additionally, it updates the
      * address metadata in both the database and the session.
      *
-     * @param array $params An associative array containing the necessary parameters to update
+     * @param array<mixed,mixed> $params An associative array containing the necessary parameters to update
      *                      the shipping address. Expected keys are:
      *                      - 'updatedAddress': An array with the updated address information.
      *                      - 'enderecometa': An array with metadata related to the address.
@@ -132,18 +133,13 @@ class AjaxHandler
     {
         $isPresetKnown = !empty($_SESSION['shippingAddressPresetID']);
 
-        if ($isPresetKnown) {
-            $presetAddress = new DeliveryAddressTemplate(
+        if ($isPresetKnown && class_exists('JTL\Checkout\DeliveryAddressTemplate')) {
+            $presetAddress = new \JTL\Checkout\DeliveryAddressTemplate(
                 $this->dbConnection,
                 $_SESSION['shippingAddressPresetID']
             );
             $presetAddress = $this->updateAddressData($presetAddress, $params['updatedAddress']);
-        }
 
-        $deliveryAddress = $this->updateAddressData($_SESSION['Lieferadresse'], $params['updatedAddress']);
-
-        // Update customer in the database
-        if ($isPresetKnown) {
             $this->enderecoService->updateAddressInDB($presetAddress);
             $this->enderecoService->updateAddressMetaInDB(
                 $presetAddress,
@@ -152,6 +148,8 @@ class AjaxHandler
                 $params['enderecometa']['predictions'],
             );
         }
+
+        $deliveryAddress = $this->updateAddressData($_SESSION['Lieferadresse'], $params['updatedAddress']);
 
         // Update customer in the session
         $this->enderecoService->updateAddressInSession($deliveryAddress);
@@ -181,9 +179,9 @@ class AjaxHandler
      * associated with this key. If the 'updatedAddress' key does not exist, the behavior
      * will depend on how the array is structured and how it handles missing keys.
      *
-     * @param array $params An associative array containing at least the 'updatedAddress' key.
+     * @param array<mixed,mixed> $params An associative array containing at least the 'updatedAddress' key.
      *
-     * @return array The address data extracted from the input parameters.
+     * @return array<string,string> The address data extracted from the input parameters.
      */
     public function extractAddressData($params): array
     {
@@ -203,7 +201,7 @@ class AjaxHandler
      * The method expects the request data to be in a specific format, where 'method'
      * indicates the method to be called, and 'params' contains the parameters for that method.
      *
-     * @param array $args An associative array containing the necessary parameters, including:
+     * @param array<string,mixed> $args An associative array containing the necessary parameters, including:
      *                    - 'request': The request type to check. It should match 'endereco_inner_request'
      *                                for the method to proceed with registration.
      *                    - 'io': The IO handling object responsible for registering the method.
@@ -232,7 +230,18 @@ class AjaxHandler
             return;
         }
 
-        $postData   = json_decode(file_get_contents('php://input'), true);
+        $inputContent = file_get_contents('php://input');
+        // Check if $inputContent is a valid string
+        if ($inputContent === false) {
+            // Handle the error or return early
+            return;
+        }
+
+        $postData = json_decode($inputContent, true);
+        if ($postData === null) {
+            // json_decode failed, handle the error or return early
+            return;
+        }
 
         // Register the method and provide
         $args['request'] = json_encode([

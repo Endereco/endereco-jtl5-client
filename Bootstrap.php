@@ -32,7 +32,7 @@ class Bootstrap extends Bootstrapper
      *
      * @param Dispatcher $dispatcher The event dispatcher.
      */
-    public function boot(Dispatcher $dispatcher)
+    public function boot(Dispatcher $dispatcher): void
     {
         parent::boot($dispatcher);
 
@@ -55,10 +55,10 @@ class Bootstrap extends Bootstrapper
         /** @var DbInterface $dbConnection */
         $dbConnection = $container->getDB();
 
-        /** @var AlertServiceInterface $dbConnection */
+        /** @var AlertServiceInterface $alertService */
         $alertService = $container->getAlertService();
 
-        /** @var JTLSmarty $dbConnection */
+        /** @var JTLSmarty $smarty */
         $smarty = Shop::Smarty();
 
         $enderecoService = new EnderecoService(
@@ -70,7 +70,6 @@ class Bootstrap extends Bootstrapper
         $templateHandler = new TemplateHandler(
             $plugin,
             $enderecoService,
-            $cryptoService,
             $templateService,
             $dbConnection,
             $alertService

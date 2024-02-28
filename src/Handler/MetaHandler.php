@@ -9,10 +9,12 @@ use JTL\DB\NiceDB;
 use JTL\Plugin\PluginInterface;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Smarty\JTLSmarty;
+use InvalidArgumentException;
+use JTL\DB\DbInterface;
 
 class MetaHandler
 {
-    private NiceDB $dbConnection;
+    private DbInterface $dbConnection;
     private EnderecoService $enderecoService;
     private PluginInterface $plugin;
     private JTLSmarty $smarty;
@@ -25,12 +27,12 @@ class MetaHandler
      * Initializes the object with necessary dependencies for its operations.
      *
      * @param PluginInterface $plugin The instance of the plugin.
-     * @param NiceDB $dbConnection The database connection instance.
+     * @param DbInterface $dbConnection The database connection instance.
      * @param EnderecoService $enderecoService The service for endereco-related functionalities.
      */
     public function __construct(
         PluginInterface $plugin,
-        NiceDB $dbConnection,
+        DbInterface $dbConnection,
         EnderecoService $enderecoService,
         JTLSmarty $smarty
     ) {
@@ -46,7 +48,7 @@ class MetaHandler
      * This method unsets the billing and shipping address metadata from the session,
      * typically invoked on a GET request.
      *
-     * @param array $args Contextual arguments, not used in the current implementation.
+     * @param array<string,mixed> $args Contextual arguments, not used in the current implementation.
      */
     public function clearMetaFromSession(array $args): void
     {
@@ -64,7 +66,7 @@ class MetaHandler
      * to reset the session state regarding address information, for instance, after a user logs out,
      * or when starting a new checkout process.
      *
-     * @param array $args An array of arguments for the method. Currently, this parameter is not used
+     * @param array<string,mixed> $args An array of arguments for the method. Currently, this parameter is not used
      *                    within the function, but is included to allow for future extensibility without
      *                    changing the method signature.
      * @return void This method does not return any value.
@@ -133,7 +135,8 @@ class MetaHandler
      * This method assesses whether metadata specific to billing addresses (e.g., validation status)
      * is available in the POST request data.
      *
-     * @param array $postVariables The array of POST variables, typically $_POST, to check for address metadata.
+     * @param array<string,mixed> $postVariables The array of POST variables, typically $_POST,
+     *                                           to check for address metadata.
      * @return bool Returns true if billing address metadata is present, false otherwise.
      */
     private function hasBillingAddressMeta(array $postVariables): bool
@@ -149,7 +152,8 @@ class MetaHandler
      * This method assesses whether metadata specific to shipping addresses (e.g., validation status)
      * is available in the POST request data.
      *
-     * @param array $postVariables The array of POST variables, typically $_POST, to check for address metadata.
+     * @param array<string,mixed> $postVariables The array of POST variables, typically $_POST,
+     *                                           to check for address metadata.
      * @return bool Returns true if shipping address metadata is present, false otherwise.
      */
     private function hasShippingAddressMeta(array $postVariables): bool
@@ -165,7 +169,8 @@ class MetaHandler
      * This method handles different scenarios where address metadata is submitted via POST request,
      * such as editing billing or delivery addresses. It updates the database with the new metadata.
      *
-     * @param array $args Contextual arguments that may affect how metadata is saved, like page type or customer ID.
+     * @param array<string,mixed> $args Contextual arguments that may affect how metadata is saved,
+     *                                  like page type or customer ID.
      */
     public function saveMetaFromSubmitInDatabase(array $args): void
     {
@@ -225,8 +230,15 @@ class MetaHandler
         }
 
         // Handling the scenario when editing a specific delivery address
-        if (!empty($_GET['editLieferadresse']) && !empty($_GET['editAddress'])) {
-            $deliveryAddress = new DeliveryAddressTemplate($this->dbConnection, $_GET['editAddress']);
+        if (
+            !empty($_GET['editLieferadresse']) &&
+            !empty($_GET['editAddress']) &&
+            class_exists('JTL\Checkout\DeliveryAddressTemplate')
+        ) {
+            $deliveryAddress = new \JTL\Checkout\DeliveryAddressTemplate(
+                $this->dbConnection,
+                $_GET['editAddress']
+            );
             // Update the delivery address metadata
             $this->enderecoService->updateAddressMetaInDB(
                 $deliveryAddress,
@@ -245,7 +257,8 @@ class MetaHandler
      * This method handles different scenarios where address metadata is submitted via POST request,
      * such as editing billing or delivery addresses. It updates the database with the new metadata.
      *
-     * @param array $args Contextual arguments that may affect how metadata is saved, like page type or customer ID.
+     * @param array<string,mixed> $args Contextual arguments that may affect how metadata is saved,
+     *                                  like page type or customer ID.
      */
     public function saveMetaFromSubmitInCache(array $args): void
     {
@@ -285,15 +298,15 @@ class MetaHandler
      * building number, and any additional address information if available. It expects
      * each piece of address information to be provided under specific keys.
      *
-     * @param array $postVariable The post request variable containing billing address information.
+     * @param array<string,string> $postVariable The post request variable containing billing address information.
      *                            Expected keys are 'land' (country code), 'plz' (postal code),
      *                            'ort' (locality), 'strasse' (street name), 'hausnummer' (building number),
      *                            and 'adresszusatz' (additional info), which is optional.
-     * @return array An associative array containing the extracted billing address, formatted
+     * @return array<string,string> An associative array containing the extracted billing address, formatted
      *               with keys as 'countryCode', 'postalCode', 'locality', 'streetName',
      *               'buildingNumber', and 'additionalInfo'.
      */
-    public function extractBillingAddressFromPost($postVariable)
+    public function extractBillingAddressFromPost($postVariable): array
     {
         $address = [
             'countryCode' => strtoupper($postVariable['land']),
@@ -315,16 +328,16 @@ class MetaHandler
      * It requires the shipping address to be located under 'register' and then 'shipping_address',
      * with specific keys for each piece of address information.
      *
-     * @param array $postVariable The post request variable containing nested shipping address
+     * @param array<string,mixed> $postVariable The post request variable containing nested shipping address
      *                            information. Expected structure is $postVariable['register']['shipping_address']
      *                            with keys 'land' (country code), 'plz' (postal code), 'ort' (locality),
      *                            'strasse' (street name), 'hausnummer' (building number), and
      *                            'adresszusatz' (additional info), which is optional.
-     * @return array An associative array containing the extracted shipping address, with keys
+     * @return array<string,string> An associative array containing the extracted shipping address, with keys
      *               as 'countryCode', 'postalCode', 'locality', 'streetName', 'buildingNumber',
      *               and 'additionalInfo'.
      */
-    public function extractShippingAddressFromPost($postVariable)
+    public function extractShippingAddressFromPost($postVariable): array
     {
         $address = [
             'countryCode' => strtoupper($postVariable['register']['shipping_address']['land']),
@@ -351,9 +364,9 @@ class MetaHandler
     private function processAddressCheck(&$address): \stdClass
     {
         if (
-            !$address instanceof Lieferadresse
-            && !$address instanceof DeliveryAddressTemplate
-            && !$address instanceof Customer
+            !$this->enderecoService->isObjectCustomer($address) &&
+            !$this->enderecoService->isObjectDeliveryAddress($address) &&
+            !$this->enderecoService->isObjectDeliveryAddressTemplate($address)
         ) {
             throw new InvalidArgumentException(
                 'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
@@ -396,14 +409,15 @@ class MetaHandler
     private function tryToLoadMetaFromCache($address): \stdClass
     {
         if (
-            !$address instanceof Lieferadresse
-            && !$address instanceof DeliveryAddressTemplate
-            && !$address instanceof Customer
+            !$this->enderecoService->isObjectCustomer($address) &&
+            !$this->enderecoService->isObjectDeliveryAddress($address) &&
+            !$this->enderecoService->isObjectDeliveryAddressTemplate($address)
         ) {
             throw new InvalidArgumentException(
                 'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
             );
         }
+
         // Perform an address check using the endereco service
         $checkResult = $this->enderecoService->lookupInCache($address);
         $addressMeta = $checkResult->getMeta();
@@ -425,7 +439,7 @@ class MetaHandler
 
         // Query for existing metadata in the database
         if (!empty($customer->kKunde)) {
-            $addressMeta = $this->dbConnection->queryPrepared(
+            $addressMetaData = $this->dbConnection->queryPrepared(
                 "SELECT `xplugin_endereco_jtl5_client_tams`.*
              FROM `xplugin_endereco_jtl5_client_tams`
              WHERE `kKunde` = :id",
@@ -433,13 +447,14 @@ class MetaHandler
                 1
             );
 
-            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
-            if ($isEmptyStatus) {
+            $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+
+            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
                 // Try to load from cache
                 $addressMeta = $this->tryToLoadMetaFromCache($customer);
             }
 
-            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+            $isEmptyStatus = $this->enderecoService->isStatusEmpty($addressMeta);
 
             // If no metadata is found and an existing customer check is active, process the address check
             if ($isEmptyStatus && $this->isExistingCustomerCheckActive()) {
@@ -459,8 +474,7 @@ class MetaHandler
         } elseif ($this->isExistingCustomerCheckActive()) {
             // Try to load from cache
             $addressMeta = $this->tryToLoadMetaFromCache($customer);
-            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
-            if ($isEmptyStatus) {
+            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
                 // Process address check for a guest customer
                 $addressMeta = $this->processAddressCheck($customer);
             }
@@ -470,7 +484,7 @@ class MetaHandler
         }
 
         // Update the address metadata in the session
-        if (!empty($addressMeta)) {
+        if (!$this->enderecoService->isStatusEmpty($addressMeta)) {
             $this->enderecoService->updateAddressMetaInSession(
                 $addressMeta->enderecoamsts,
                 $addressMeta->enderecoamsstatus,
@@ -490,7 +504,10 @@ class MetaHandler
      */
     private function loadShippingAddressMetaToSession($deliveryAddress): void
     {
-        if (!$deliveryAddress instanceof Lieferadresse && !$deliveryAddress instanceof DeliveryAddressTemplate) {
+        if (
+            !$this->enderecoService->isObjectDeliveryAddress($deliveryAddress) &&
+            !$this->enderecoService->isObjectDeliveryAddressTemplate($deliveryAddress)
+        ) {
             throw new InvalidArgumentException('Address must be of type Lieferadresse or DeliveryAddressTemplate');
         }
 
@@ -498,7 +515,7 @@ class MetaHandler
 
         // Query for existing metadata in the database
         if (!empty($deliveryAddress->kLieferadresse)) {
-            $addressMeta = $this->dbConnection->queryPrepared(
+            $addressMetaData = $this->dbConnection->queryPrepared(
                 "SELECT `xplugin_endereco_jtl5_client_tams`.*
              FROM `xplugin_endereco_jtl5_client_tams`
              WHERE `kLieferadresse` = :id",
@@ -506,13 +523,14 @@ class MetaHandler
                 1
             );
 
-            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
-            if ($isEmptyStatus) {
+            $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+
+            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
                 // Try to load from cache
-                $addressMeta = $this->tryToLoadMetaFromCache($customer);
+                $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
             }
 
-            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+            $isEmptyStatus = $this->enderecoService->isStatusEmpty($addressMeta);
             // If no metadata is found and an existing customer check is active, process the address check
             if ($isEmptyStatus && $this->isExistingCustomerCheckActive()) {
                 $addressMeta = $this->processAddressCheck($deliveryAddress);
@@ -534,9 +552,7 @@ class MetaHandler
             $addressMeta = $this->processAddressCheck($deliveryAddress);
         } elseif ($this->isExistingCustomerCheckActive() && $this->enderecoService->isBillingDifferentFromShipping()) {
             // Try to load from cache
-            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
-            $isEmptyStatus = empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
-            if ($isEmptyStatus) {
+            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
                 // Process address check for a situation where billing and shipping addresses are different
                 $addressMeta = $this->processAddressCheck($deliveryAddress);
             }
@@ -546,7 +562,7 @@ class MetaHandler
         }
 
         // Update the address metadata in the session
-        if (!empty($addressMeta)) {
+        if (!$this->enderecoService->isStatusEmpty($addressMeta)) {
             $this->enderecoService->updateAddressMetaInSession(
                 $addressMeta->enderecoamsts,
                 $addressMeta->enderecoamsstatus,
@@ -562,7 +578,7 @@ class MetaHandler
      * This method handles different scenarios such as editing billing or delivery addresses in the user's account,
      * or processing addresses during the checkout. It updates the session with the relevant metadata from the database.
      *
-     * @param array $args Contextual arguments that may affect how metadata is loaded.
+     * @param array<int,mixed> $args Contextual arguments that may affect how metadata is loaded.
      */
     public function loadMetaFromDatabase(array $args): void
     {
@@ -602,10 +618,14 @@ class MetaHandler
         }
 
         // Handling the scenario when editing a specific delivery address in "My account"
-        if (!empty($_GET['editLieferadresse']) && !empty($_GET['editAddress'])) {
+        if (
+            !empty($_GET['editLieferadresse']) &&
+            !empty($_GET['editAddress']) &&
+            class_exists('JTL\Checkout\DeliveryAddressTemplate')
+        ) {
             // Load metadata for the specified delivery address
             $deliveryAddressId = intval($_GET['editAddress']);
-            $deliveryAddress = new DeliveryAddressTemplate($this->dbConnection, $deliveryAddressId);
+            $deliveryAddress = new \JTL\Checkout\DeliveryAddressTemplate($this->dbConnection, $deliveryAddressId);
             $this->loadShippingAddressMetaToSession($deliveryAddress);
         }
 
@@ -615,8 +635,11 @@ class MetaHandler
             $this->loadBillingAddressMetaToSession($_SESSION['Kunde']);
 
             // Load metadata for either a preset shipping address or the default one in the session
-            if (!empty($_SESSION['shippingAddressPresetID'])) {
-                $deliveryAddress = new DeliveryAddressTemplate(
+            if (
+                !empty($_SESSION['shippingAddressPresetID']) &&
+                class_exists('JTL\Checkout\DeliveryAddressTemplate')
+            ) {
+                $deliveryAddress = new \JTL\Checkout\DeliveryAddressTemplate(
                     $this->dbConnection,
                     $_SESSION['shippingAddressPresetID']
                 );

@@ -3,28 +3,31 @@
 namespace Plugin\endereco_jtl5_client\src\Helper;
 
 use JTL\Checkout\Bestellung;
-use JTL\Checkout\DeliveryAddressTemplate;
 use JTL\Checkout\Lieferadresse;
 use JTL\Customer\Customer;
 use JTL\Customer\DataHistory;
 use JTL\DB\NiceDB;
+use JTL\DB\DbInterface;
 use JTL\Helpers\Text;
 use JTL\Plugin\Plugin;
 use JTL\Plugin\PluginInterface;
 use Plugin\endereco_jtl5_client\src\Structures\AddressCheckResult;
+use InvalidArgumentException;
+use Exception;
 
 class EnderecoService
 {
-    public $plugin;
-    public $clientInfo;
-    private NiceDB $dbConnection;
+    public PluginInterface $plugin;
+    public string $clientInfo;
+    private DbInterface $dbConnection;
 
     /**
      * constructor
      *
-     * @param Plugin $oPlugin
+     * @param PluginInterface $oPlugin
+     * @param DbInterface     $dbConnection
      */
-    public function __construct(PluginInterface $oPlugin, NiceDB $dbConnection)
+    public function __construct(PluginInterface $oPlugin, DbInterface $dbConnection)
     {
         $this->plugin = $oPlugin;
         $this->dbConnection = $dbConnection;
@@ -55,20 +58,27 @@ class EnderecoService
      * corresponding '_session_id' variables. Only session IDs associated with a
      * positive '_session_counter' value are considered.
      *
-     * @return array An array of session IDs that meet the criteria. If the request
+     * @return array<string> An array of session IDs that meet the criteria. If the request
      *               method is not POST or if no matching sessions are found, an
      *               empty array is returned.
      */
     public function findSessions(): array
     {
-        $accountableSessionIds = array();
+        $accountableSessionIds = [];
         if ('POST' === $_SERVER['REQUEST_METHOD']) {
             foreach ($_POST as $sVarName => $sVarValue) {
                 if ((strpos($sVarName, '_session_counter') !== false) && 0 < intval($sVarValue)) {
+                    // Compute the corresponding session ID name
                     $sSessionIdName = str_replace('_session_counter', '', $sVarName) . '_session_id';
-                    $accountableSessionIds[$_POST[$sSessionIdName]] = true;
+                    if (isset($_POST[$sSessionIdName])) {
+                        // Cast the session ID to string to ensure the value type is string
+                        $sessionId = (string) $_POST[$sSessionIdName];
+                        // Use the session ID as key to avoid duplicates, with a dummy value
+                        $accountableSessionIds[$sessionId] = true;
+                    }
                 }
             }
+            // Extract the keys (session IDs) and ensure they are strings
             $accountableSessionIds = array_keys($accountableSessionIds);
         }
         return $accountableSessionIds;
@@ -117,9 +127,9 @@ class EnderecoService
     public function checkAddress($address): AddressCheckResult
     {
         if (
-            !$address instanceof Lieferadresse
-            && !$address instanceof DeliveryAddressTemplate
-            && !$address instanceof Customer
+            !$this->isObjectCustomer($address) &&
+            !$this->isObjectDeliveryAddress($address) &&
+            !$this->isObjectDeliveryAddressTemplate($address)
         ) {
             throw new InvalidArgumentException(
                 'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
@@ -206,14 +216,15 @@ class EnderecoService
     public function lookupInCache($address): AddressCheckResult
     {
         if (
-            !$address instanceof Lieferadresse
-            && !$address instanceof DeliveryAddressTemplate
-            && !$address instanceof Customer
+            !$this->isObjectCustomer($address) &&
+            !$this->isObjectDeliveryAddress($address) &&
+            !$this->isObjectDeliveryAddressTemplate($address)
         ) {
             throw new InvalidArgumentException(
                 'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
             );
         }
+
         // Create address check result.
         $addressCheckResult = new AddressCheckResult();
 
@@ -256,7 +267,7 @@ class EnderecoService
      * which can then be used for caching, logging, or other purposes where a consistent,
      * reproducible string representation of the request is needed.
      *
-     * @param array $requestArray The request array to be processed. This array must include
+     * @param array<string,mixed> $requestArray The request array to be processed. This array must include
      *                            a 'params' key with an array as its value. The 'params'
      *                            array will be sorted alphabetically by key before encoding.
      *
@@ -273,7 +284,9 @@ class EnderecoService
         unset($requestArray['id']);
         ksort($requestArray['params']);
 
-        return base64_encode(json_encode($requestArray));
+        $requestString = json_encode($requestArray);
+
+        return $requestString ? base64_encode($requestString) : '';
     }
 
     /**
@@ -285,9 +298,13 @@ class EnderecoService
      */
     public function updateAddressInDB($addressObject): void
     {
-        if (!$address instanceof DeliveryAddressTemplate && !$address instanceof Customer) {
+        if (
+            !$this->isObjectCustomer($addressObject) &&
+            !$this->isObjectDeliveryAddress($addressObject) &&
+            !$this->isObjectDeliveryAddressTemplate($addressObject)
+        ) {
             throw new InvalidArgumentException(
-                'Address must be of type DeliveryAddressTemplate or Customer'
+                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
             );
         }
 
@@ -301,8 +318,8 @@ class EnderecoService
     /**
      * Updates the address in the session.
      *
-     * @param mixed $addressObject The address object to be updated.
-     * @param string $space The session space key where the address object is stored.
+     * @param mixed  $addressObject The address object to be updated.
+     *
      * @return void
      */
     public function updateAddressInSession($addressObject): void
@@ -314,7 +331,7 @@ class EnderecoService
             }
         } elseif ($addressObject instanceof Lieferadresse) {
             $space = 'Lieferadresse';
-        } elseif ($addressObject instanceof DeliveryAddressTemplate) {
+        } elseif ($this->isObjectDeliveryAddressTemplate($addressObject)) {
             $addressObject = $addressObject->getDeliveryAddress();
             $space = 'Lieferadresse';
         } else {
@@ -338,16 +355,16 @@ class EnderecoService
      * @param mixed $addressObject The original address object to be corrected.
      * @param AddressCheckResult $checkResult The result from the address check containing potential corrections.
      *
-     * @return Customer|Lieferadresse|DeliveryAddressTemplate The address object after applying the corrections.
+     * @return mixed The address object after applying the corrections.
      */
     public function applyAutocorrection(
         $addressObject,
         AddressCheckResult $checkResult
     ): mixed {
         if (
-            !$addressObject instanceof Lieferadresse
-            && !$addressObject instanceof DeliveryAddressTemplate
-            && !$addressObject instanceof Customer
+            !$this->isObjectCustomer($addressObject) &&
+            !$this->isObjectDeliveryAddress($addressObject) &&
+            !$this->isObjectDeliveryAddressTemplate($addressObject)
         ) {
             throw new InvalidArgumentException(
                 'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
@@ -435,7 +452,7 @@ class EnderecoService
      * strings to arrays as needed. It constructs a JSON-RPC style message for an 'addressCheck' method
      * call, incorporating the provided address data and additional information.
      *
-     * @param array $addressData An associative array containing address components, such as
+     * @param array<string,string> $addressData An associative array containing address components, such as
      *                           'countryCode', 'postalCode', 'locality', 'buildingNumber', 'streetName',
      *                           and optionally 'additionalInfo'.
      * @param mixed $statuses A single status or an array of statuses related to the address
@@ -498,6 +515,31 @@ class EnderecoService
         }
 
         $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)] = $response;
+    }
+
+    /**
+     * Initializes address metadata from DB data.
+     *
+     * If $data is an stdClass, populates addressMeta properties
+     * with $data values or defaults. Returns the addressMeta object.
+     *
+     * @param mixed $data Data to populate addressMeta.
+     * @return \stdClass Populated addressMeta object.
+     */
+    public function createAddressMetaFromDBData($data): \stdClass
+    {
+        $addressMeta = new \stdClass();
+        $addressMeta->enderecoamsts = 0;
+        $addressMeta->enderecoamsstatus = '';
+        $addressMeta->enderecoamspredictions = '';
+
+        if ($data instanceof \stdClass) {
+            $addressMeta->enderecoamsts = $data->enderecoamsts ?? 0;
+            $addressMeta->enderecoamsstatus = $data->enderecoamsstatus ?? '';
+            $addressMeta->enderecoamspredictions = $data->enderecoamspredictions ?? '';
+        }
+
+        return $addressMeta;
     }
 
     /**
@@ -577,16 +619,23 @@ class EnderecoService
      */
     public function compareStringsDifferentEncodings(string $str1, string $str2, $targetEncoding = 'UTF-8')
     {
-        // Convert both strings to the target encoding
-        $convertedStr1 = trim(mb_convert_encoding($str1, $targetEncoding, mb_detect_encoding($str1)));
-        $convertedStr2 = trim(mb_convert_encoding($str2, $targetEncoding, mb_detect_encoding($str2)));
+        // Detect encodings or use a default/fallback encoding
+        $detectedEncodingStr1 = mb_detect_encoding($str1) ?: 'ISO-8859-1'; // Fallback to 'ISO-8859-1'
+        $detectedEncodingStr2 = mb_detect_encoding($str2) ?: 'ISO-8859-1'; // Fallback to 'ISO-8859-1'
 
+        // Convert both strings to the target encoding
+        $convertedStr1 = trim(mb_convert_encoding($str1, $targetEncoding, $detectedEncodingStr1));
+        $convertedStr2 = trim(mb_convert_encoding($str2, $targetEncoding, $detectedEncodingStr2));
+
+        // Assuming Text::unhtmlentities() is a method to decode HTML entities
+        // Note: PHP's html_entity_decode() could be used if Text::unhtmlentities() is not available
         $convertedStr1 = Text::unhtmlentities($convertedStr1);
         $convertedStr2 = Text::unhtmlentities($convertedStr2);
 
         // Compare the converted strings
         return strcmp($convertedStr1, $convertedStr2) == 0;
     }
+
 
     /**
      * Clears specific metadata related to billing and shipping addresses from the session.
@@ -601,6 +650,66 @@ class EnderecoService
         unset($_SESSION['EnderecoBillingAddressMeta']);
         unset($_SESSION['EnderecoShippingAddressMeta']);
     }
+
+    /**
+     * Checks if the provided object is an instance of the Customer class.
+     *
+     * @param mixed $object The object to check.
+     * @return bool Returns true if the object is an instance of Customer, false otherwise.
+     */
+    public function isObjectCustomer($object)
+    {
+        return $object instanceof Customer;
+    }
+
+    /**
+     * Checks if the provided object is an instance of the Lieferadresse class.
+     *
+     * @param mixed $object The object to check.
+     * @return bool Returns true if the object is an instance of Lieferadresse, false otherwise.
+     */
+    public function isObjectDeliveryAddress($object)
+    {
+        return $object instanceof Lieferadresse;
+    }
+
+    /**
+     * Checks if the DeliveryAddressTemplate class exists and the provided object is not an
+     * instance of this class.
+     *
+     * This function is useful for environments where the DeliveryAddressTemplate class might not
+     * be available. It ensures that the class exists before performing the instance check.
+     *
+     * @param mixed $object The object to check.
+     *
+     * @return bool Returns true if the DeliveryAddressTemplate class exists and the object is
+     *              not an instance of it, false otherwise.
+     */
+    public function isObjectDeliveryAddressTemplate($object)
+    {
+        return class_exists('JTL\Checkout\DeliveryAddressTemplate')
+            && !$object instanceof \JTL\Checkout\DeliveryAddressTemplate;
+    }
+
+    /**
+    * Checks if the address metadata is empty or if its 'enderecoamsstatus' property is empty.
+    *
+    * This function evaluates two conditions:
+    * 1. If the provided $addressMeta parameter itself is empty.
+    * 2. If the 'enderecoamsstatus' property of the $addressMeta object is empty.
+    * It returns true if either of these conditions is met, indicating that either
+    * the metadata is not provided or it lacks a status.
+    *
+    * @param mixed $addressMeta The address metadata object to check. Can be any type, but
+    *                           typically an object with an 'enderecoamsstatus' property.
+    *
+    * @return bool Returns true if the metadata is empty or the 'enderecoamsstatus' property is empty, false otherwise.
+    */
+    public function isStatusEmpty($addressMeta): bool
+    {
+        return empty($addressMeta) || empty($addressMeta->enderecoamsstatus);
+    }
+
 
     /**
      * Updates the address metadata in the database.
@@ -627,14 +736,15 @@ class EnderecoService
         $predictions
     ): void {
         if (
-            !$addressObject instanceof Lieferadresse
-            && !$addressObject instanceof DeliveryAddressTemplate
-            && !$addressObject instanceof Customer
+            !$this->isObjectCustomer($addressObject) &&
+            !$this->isObjectDeliveryAddress($addressObject) &&
+            !$this->isObjectDeliveryAddressTemplate($addressObject)
         ) {
             throw new InvalidArgumentException(
                 'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
             );
         }
+
         if (is_array($statuses)) {
             $statuses = implode(',', $statuses);
         }
@@ -752,9 +862,11 @@ class EnderecoService
      * and is sent using the `sendRequest` method. The method handles exceptions silently and
      * may log errors (logging implementation is marked as TODO).
      *
-     * @param array $sessionIds An array of session IDs for which to perform accounting.
+     * @param array<string> $sessionIds An array of session IDs for which to perform accounting.
+     *
+     * @return void
      */
-    public function doAccountings($sessionIds)
+    public function doAccountings($sessionIds): void
     {
 
         // Get sessionids.
@@ -821,17 +933,26 @@ class EnderecoService
      * in the plugin configuration ('endereco_jtl5_client_remote_url'). The method
      * returns the decoded JSON response.
      *
-     * @param array $body The request body to be sent, which will be JSON encoded.
-     * @param array $headers An associative array of headers to be included in the request.
+     * @param array<string,mixed> $body The request body to be sent, which will be JSON encoded.
+     * @param array<string,string> $headers An associative array of headers to be included in the request.
      *
-     * @return array The decoded JSON response from the remote service.
+     * @return array<mixed> The decoded JSON response from the remote service.
      */
     public function sendRequest(array $body, array $headers): array
     {
         $config = $this->plugin->getConfig();
         $serviceUrl = $config->getValue('endereco_jtl5_client_remote_url');
         $ch = curl_init(trim($serviceUrl));
+
+        if ($ch === false) {
+            return [];
+        }
+
         $dataString = json_encode($body);
+        if ($dataString === false) {
+            return [];
+        }
+
         $parsedHeaders = array();
         foreach ($headers as $headerName => $headerValue) {
             $parsedHeaders[] = $headerName . ': ' . $headerValue;
@@ -849,7 +970,18 @@ class EnderecoService
             $parsedHeaders
         );
 
-        $result = json_decode(curl_exec($ch), true);
-        return $result;
+        $result = curl_exec($ch);
+        if ($result === false) {
+            return [];
+        }
+
+        $result = '' . $result;
+
+        $decodedResult = json_decode($result, true);
+        if ($decodedResult === null && json_last_error() !== JSON_ERROR_NONE) {
+            return [];
+        }
+
+        return $decodedResult;
     }
 }

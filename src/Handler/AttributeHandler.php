@@ -2,15 +2,15 @@
 
 namespace Plugin\endereco_jtl5_client\src\Handler;
 
-use JTL\Checkout\DeliveryAddressTemplate;
 use JTL\Customer\Customer;
 use JTL\DB\NiceDB;
 use JTL\Checkout\Bestellung;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
+use JTL\DB\DbInterface;
 
 class AttributeHandler
 {
-    private NiceDB $dbConnection;
+    private DbInterface $dbConnection;
     private EnderecoService $enderecoService;
 
     /**
@@ -18,11 +18,11 @@ class AttributeHandler
      *
      * Initializes the database connection used by the handler.
      *
-     * @param NiceDB $dbConnection The database connection instance.
+     * @param DbInterface $dbConnection The database connection instance.
      * @param EnderecoService $enderecoService The service for handling Endereco operations.
      */
     public function __construct(
-        NiceDB $dbConnection,
+        DbInterface $dbConnection,
         EnderecoService $enderecoService
     ) {
         $this->dbConnection = $dbConnection;
@@ -32,7 +32,7 @@ class AttributeHandler
     /**
      * Updates the address in the database.
      *
-     * @param array $args The address object to be updated.
+     * @param array<string,mixed> $args The address object to be updated.
      *
      * @return void
      */
