@@ -11,6 +11,7 @@ use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Smarty\JTLSmarty;
 use InvalidArgumentException;
 use JTL\DB\DbInterface;
+use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class MetaHandler
 {
@@ -47,10 +48,8 @@ class MetaHandler
      *
      * This method unsets the billing and shipping address metadata from the session,
      * typically invoked on a GET request.
-     *
-     * @param array<string,mixed> $args Contextual arguments, not used in the current implementation.
      */
-    public function clearMetaFromSession(array $args): void
+    public function clearMetaFromSession(): void
     {
         if ('GET' === $_SERVER['REQUEST_METHOD']) {
             unset($_SESSION['EnderecoBillingAddressMeta']);
@@ -66,12 +65,9 @@ class MetaHandler
      * to reset the session state regarding address information, for instance, after a user logs out,
      * or when starting a new checkout process.
      *
-     * @param array<string,mixed> $args An array of arguments for the method. Currently, this parameter is not used
-     *                    within the function, but is included to allow for future extensibility without
-     *                    changing the method signature.
      * @return void This method does not return any value.
      */
-    public function clearMetaAndCacheFromSession(array $args): void
+    public function clearMetaAndCacheFromSession(): void
     {
         unset($_SESSION['EnderecoBillingAddressMeta']);
         unset($_SESSION['EnderecoShippingAddressMeta']);
@@ -87,7 +83,8 @@ class MetaHandler
     private function isPayPalExpressCheckoutCheckActive(): bool
     {
         $config = $this->plugin->getConfig();
-        return 'on' === $config->getOption('endereco_jtl5_client_check_paypal_express')->value;
+        $option = $config->getOption('endereco_jtl5_client_check_paypal_express');
+        return $option !== null && ('on' === $option->value);
     }
 
     /**
@@ -98,7 +95,8 @@ class MetaHandler
     private function isExistingCustomerCheckActive(): bool
     {
         $config = $this->plugin->getConfig();
-        return 'on' === $config->getOption('endereco_jtl5_client_check_existing')->value;
+        $option = $config->getOption('endereco_jtl5_client_check_existing');
+        return $option !== null && ('on' === $option->value);
     }
 
     /**
@@ -127,6 +125,22 @@ class MetaHandler
         }
 
         return $isPayPal;
+    }
+    /**
+     * Checks if the current checkout is being processed through PayPal Express Checkout.
+     * Should be extended in the future with other payment sources.
+     *
+     * This method determines whether the payment source for the current checkout
+     * process is PayPal Express Checkout. It relies on the `isPayPalExpressCheckout()`
+     * method to ascertain the payment source.
+     *
+     * @return bool Returns true if the current checkout is via PayPal Express Checkout, false otherwise.
+     */
+    private function isAnyExternalSource(): bool
+    {
+        $isPayPalExpress = $this->isPayPalExpressCheckout();
+
+        return $isPayPalExpress;
     }
 
     /**
@@ -186,13 +200,16 @@ class MetaHandler
         // Handling the scenario when saving the billing address in "My account"
         if (!empty($_GET['editRechnungsadresse']) && $this->hasBillingAddressMeta($_POST)) {
             $customer = $_SESSION['Kunde'] ?? null;
+            $addressMeta = (new AddressMeta())->assign(
+                $_POST['enderecoamsts'],
+                $_POST['enderecoamsstatus'],
+                $_POST['enderecoamspredictions']
+            );
             // Update the billing address metadata if the customer exists
             if (!empty($customer) && !empty($customer->kKunde)) {
                 $this->enderecoService->updateAddressMetaInDB(
                     $customer,
-                    $_POST['enderecoamsts'],
-                    $_POST['enderecoamsstatus'],
-                    $_POST['enderecoamspredictions']
+                    $addressMeta
                 );
             }
 
@@ -202,13 +219,16 @@ class MetaHandler
         // Handling the scenario when saving the billing address during the checkout process
         if (\PAGE_BESTELLVORGANG === $args['pageType'] && $this->hasBillingAddressMeta($_POST)) {
             $customer = $_SESSION['Kunde'] ?? null;
+            $addressMeta = (new AddressMeta())->assign(
+                $_POST['enderecoamsts'],
+                $_POST['enderecoamsstatus'],
+                $_POST['enderecoamspredictions']
+            );
             // Update the billing address metadata if the customer exists
             if (!empty($customer) && !empty($customer->kKunde)) {
                 $this->enderecoService->updateAddressMetaInDB(
                     $customer,
-                    $_POST['enderecoamsts'],
-                    $_POST['enderecoamsstatus'],
-                    $_POST['enderecoamspredictions']
+                    $addressMeta
                 );
             }
 
@@ -218,12 +238,15 @@ class MetaHandler
         // Handling the scenario when a specific customer ID is provided
         if (!empty($args['customerID']) && $this->hasBillingAddressMeta($_POST)) {
             $customer = new Customer($args['customerID']);
-            // Update the billing address metadata for the specified customer
-            $this->enderecoService->updateAddressMetaInDB(
-                $customer,
+            $addressMeta = (new AddressMeta())->assign(
                 $_POST['enderecoamsts'],
                 $_POST['enderecoamsstatus'],
                 $_POST['enderecoamspredictions']
+            );
+            // Update the billing address metadata for the specified customer
+            $this->enderecoService->updateAddressMetaInDB(
+                $customer,
+                $addressMeta
             );
 
             $this->operationProcessed = true;
@@ -239,12 +262,15 @@ class MetaHandler
                 $this->dbConnection,
                 $_GET['editAddress']
             );
-            // Update the delivery address metadata
-            $this->enderecoService->updateAddressMetaInDB(
-                $deliveryAddress,
+            $addressMeta = (new AddressMeta())->assign(
                 $_POST['enderecodeliveryamsts'],
                 $_POST['enderecodeliveryamsstatus'],
                 $_POST['enderecodeliveryamspredictions']
+            );
+            // Update the delivery address metadata
+            $this->enderecoService->updateAddressMetaInDB(
+                $deliveryAddress,
+                $addressMeta
             );
 
             $this->operationProcessed = true;
@@ -256,37 +282,46 @@ class MetaHandler
      *
      * This method handles different scenarios where address metadata is submitted via POST request,
      * such as editing billing or delivery addresses. It updates the database with the new metadata.
-     *
-     * @param array<string,mixed> $args Contextual arguments that may affect how metadata is saved,
-     *                                  like page type or customer ID.
      */
-    public function saveMetaFromSubmitInCache(array $args): void
+    public function saveMetaFromSubmitInCache(): void
     {
-
         // Return early if the request method is not POST
         if ('POST' !== $_SERVER['REQUEST_METHOD']) {
             return;
         }
 
         // Handling the scenario when saving the billing address during the checkout process
-        if (\PAGE_BESTELLVORGANG === $args['pageType'] && $this->hasBillingAddressMeta($_POST)) {
+        if ($this->hasBillingAddressMeta($_POST)) {
             // Update the billing address metadata in session variable
             $address = $this->extractBillingAddressFromPost($_POST);
-            $this->enderecoService->updateAddressMetaInCache(
-                $address,
+            $addressMeta = (new AddressMeta())->assign(
+                $_POST['enderecoamsts'],
                 $_POST['enderecoamsstatus'],
                 $_POST['enderecoamspredictions']
             );
+
+            if ($addressMeta->hasAnyStatus()) {
+                $this->enderecoService->updateAddressMetaInCache(
+                    $address,
+                    $addressMeta
+                );
+            }
         }
 
-        if (\PAGE_BESTELLVORGANG === $args['pageType'] && $this->hasShippingAddressMeta($_POST)) {
+        if ($this->hasShippingAddressMeta($_POST)) {
             // Update the shipping address metadata in session variable
             $address = $this->extractShippingAddressFromPost($_POST);
-            $this->enderecoService->updateAddressMetaInCache(
-                $address,
+            $addressMeta = (new AddressMeta())->assign(
+                $_POST['enderecodeliveryamsts'],
                 $_POST['enderecodeliveryamsstatus'],
                 $_POST['enderecodeliveryamspredictions']
             );
+            if ($addressMeta->hasAnyStatus()) {
+                $this->enderecoService->updateAddressMetaInCache(
+                    $address,
+                    $addressMeta
+                );
+            }
         }
     }
 
@@ -359,18 +394,16 @@ class MetaHandler
      *
      * @param mixed &$address The address object to be checked and updated.
      *
-     * @return \stdClass The address metadata after processing.
+     * @return AddressMeta The address metadata after processing.
      */
-    private function processAddressCheck(&$address): \stdClass
+    private function processAddressCheck(&$address): AddressMeta
     {
         if (
             !$this->enderecoService->isObjectCustomer($address) &&
             !$this->enderecoService->isObjectDeliveryAddress($address) &&
             !$this->enderecoService->isObjectDeliveryAddressTemplate($address)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
+            return new AddressMeta();
         }
 
         // Perform an address check using the endereco service
@@ -404,23 +437,21 @@ class MetaHandler
      *
      * @param mixed $address The address object for which the metadata is to be retrieved.
      *
-     * @return \stdClass An object containing the metadata from the cached address check result.
+     * @return AddressMeta An object containing the metadata from the cached address check result.
      */
-    private function tryToLoadMetaFromCache($address): \stdClass
+    private function tryToLoadMetaFromCache($address): AddressMeta
     {
         if (
             !$this->enderecoService->isObjectCustomer($address) &&
             !$this->enderecoService->isObjectDeliveryAddress($address) &&
             !$this->enderecoService->isObjectDeliveryAddressTemplate($address)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
+            return new AddressMeta(); // Return empty.
         }
 
         // Perform an address check using the endereco service
-        $checkResult = $this->enderecoService->lookupInCache($address);
-        $addressMeta = $checkResult->getMeta();
+        $lookupResult = $this->enderecoService->lookupInCache($address);
+        $addressMeta = $lookupResult->getMeta();
         return $addressMeta;
     }
 
@@ -435,8 +466,6 @@ class MetaHandler
      */
     private function loadBillingAddressMetaToSession(Customer $customer): void
     {
-        $addressMeta = null;
-
         // Query for existing metadata in the database
         if (!empty($customer->kKunde)) {
             $addressMetaData = $this->dbConnection->queryPrepared(
@@ -449,33 +478,37 @@ class MetaHandler
 
             $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
 
-            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
+            if (!$addressMeta->hasAnyStatus()) {
                 // Try to load from cache
                 $addressMeta = $this->tryToLoadMetaFromCache($customer);
             }
 
-            $isEmptyStatus = $this->enderecoService->isStatusEmpty($addressMeta);
-
             // If no metadata is found and an existing customer check is active, process the address check
-            if ($isEmptyStatus && $this->isExistingCustomerCheckActive()) {
+            if (!$addressMeta->hasAnyStatus() && $this->isExistingCustomerCheckActive()) {
                 $addressMeta = $this->processAddressCheck($customer);
+            }
 
+            if ($addressMeta->hasAnyStatus()) {
                 // Update address metadata in the database
                 $this->enderecoService->updateAddressMetaInDB(
                     $customer,
-                    $addressMeta->enderecoamsts,
-                    $addressMeta->enderecoamsstatus,
-                    $addressMeta->enderecoamspredictions
+                    $addressMeta
                 );
             }
         } elseif ($this->isPayPalExpressCheckout() && $this->isPayPalExpressCheckoutCheckActive()) {
-            // Process address check for PayPal Express Checkout
-            $addressMeta = $this->processAddressCheck($customer);
-        } elseif ($this->isExistingCustomerCheckActive()) {
             // Try to load from cache
             $addressMeta = $this->tryToLoadMetaFromCache($customer);
-            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
-                // Process address check for a guest customer
+
+            if (!$addressMeta->hasAnyStatus()) {
+                // Process address check for PayPal Express Checkout
+                $addressMeta = $this->processAddressCheck($customer);
+            }
+        } elseif ($this->isExistingCustomerCheckActive() && !$this->isAnyExternalSource()) {
+            // Try to load from cache
+            $addressMeta = $this->tryToLoadMetaFromCache($customer);
+
+            if (!$addressMeta->hasAnyStatus()) {
+                // Process address check for PayPal Express Checkout
                 $addressMeta = $this->processAddressCheck($customer);
             }
         } else {
@@ -484,14 +517,10 @@ class MetaHandler
         }
 
         // Update the address metadata in the session
-        if (!$this->enderecoService->isStatusEmpty($addressMeta)) {
-            $this->enderecoService->updateAddressMetaInSession(
-                $addressMeta->enderecoamsts,
-                $addressMeta->enderecoamsstatus,
-                $addressMeta->enderecoamspredictions,
-                'EnderecoBillingAddressMeta'
-            );
-        }
+        $this->enderecoService->updateAddressMetaInSession(
+            'EnderecoBillingAddressMeta',
+            $addressMeta
+        );
     }
 
     /**
@@ -508,10 +537,12 @@ class MetaHandler
             !$this->enderecoService->isObjectDeliveryAddress($deliveryAddress) &&
             !$this->enderecoService->isObjectDeliveryAddressTemplate($deliveryAddress)
         ) {
-            throw new InvalidArgumentException('Address must be of type Lieferadresse or DeliveryAddressTemplate');
+            // Update the address metadata in the session
+            $this->enderecoService->updateAddressMetaInSession(
+                'EnderecoShippingAddressMeta',
+                new AddressMeta()
+            );
         }
-
-        $addressMeta = null;
 
         // Query for existing metadata in the database
         if (!empty($deliveryAddress->kLieferadresse)) {
@@ -522,25 +553,23 @@ class MetaHandler
                 [':id' => $deliveryAddress->kLieferadresse],
                 1
             );
-
             $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
 
-            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
+            if (!$addressMeta->hasAnyStatus()) {
                 // Try to load from cache
                 $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
             }
 
-            $isEmptyStatus = $this->enderecoService->isStatusEmpty($addressMeta);
             // If no metadata is found and an existing customer check is active, process the address check
-            if ($isEmptyStatus && $this->isExistingCustomerCheckActive()) {
+            if (!$addressMeta->hasAnyStatus() && $this->isExistingCustomerCheckActive()) {
                 $addressMeta = $this->processAddressCheck($deliveryAddress);
+            }
 
+            if ($addressMeta->hasAnyStatus()) {
                 // Update address metadata in the database
                 $this->enderecoService->updateAddressMetaInDB(
                     $deliveryAddress,
-                    $addressMeta->enderecoamsts,
-                    $addressMeta->enderecoamsstatus,
-                    $addressMeta->enderecoamspredictions
+                    $addressMeta
                 );
             }
         } elseif (
@@ -548,12 +577,21 @@ class MetaHandler
             $this->isPayPalExpressCheckoutCheckActive() &&
             $this->enderecoService->isBillingDifferentFromShipping()
         ) {
-            // Process address check for PayPal Express Checkout with different billing and shipping addresses
-            $addressMeta = $this->processAddressCheck($deliveryAddress);
-        } elseif ($this->isExistingCustomerCheckActive() && $this->enderecoService->isBillingDifferentFromShipping()) {
             // Try to load from cache
-            if ($this->enderecoService->isStatusEmpty($addressMeta)) {
-                // Process address check for a situation where billing and shipping addresses are different
+            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
+            // Process address check for PayPal Express Checkout with different billing and shipping addresses
+            if (!$addressMeta->hasAnyStatus()) {
+                $addressMeta = $this->processAddressCheck($deliveryAddress);
+            }
+        } elseif (
+            $this->isExistingCustomerCheckActive() &&
+            $this->enderecoService->isBillingDifferentFromShipping() &&
+            !$this->isAnyExternalSource()
+        ) {
+            // Try to load from cache
+            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
+            // Process address check for PayPal Express Checkout with different billing and shipping addresses
+            if (!$addressMeta->hasAnyStatus()) {
                 $addressMeta = $this->processAddressCheck($deliveryAddress);
             }
         } else {
@@ -562,14 +600,10 @@ class MetaHandler
         }
 
         // Update the address metadata in the session
-        if (!$this->enderecoService->isStatusEmpty($addressMeta)) {
-            $this->enderecoService->updateAddressMetaInSession(
-                $addressMeta->enderecoamsts,
-                $addressMeta->enderecoamsstatus,
-                $addressMeta->enderecoamspredictions,
-                'EnderecoShippingAddressMeta'
-            );
-        }
+        $this->enderecoService->updateAddressMetaInSession(
+            'EnderecoShippingAddressMeta',
+            $addressMeta
+        );
     }
 
     /**

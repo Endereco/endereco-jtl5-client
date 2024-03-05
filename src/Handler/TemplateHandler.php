@@ -9,10 +9,10 @@ use JTL\phpQuery\phpQueryObject;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Smarty\JTLSmarty;
 use JTL\Template\TemplateServiceInterface;
-use JTL\DB\NiceDB;
 use JTL\DB\DbInterface;
 use Illuminate\Support\Collection;
 use JTL\Alert\Alert;
+use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class TemplateHandler
 {
@@ -51,8 +51,7 @@ class TemplateHandler
      * This method finds the element in the document using the provided CSS selector and inserts
      * a new div element right after its parent. The div is created with attributes specified in
      * the `$containerAttributes` array. If the element specified by the selector is not found,
-     * the method does nothing. If the attributes provided are not in the correct format (both key
-     * and value as strings), an InvalidArgumentException is thrown.
+     * the method does nothing.
      *
      * @param phpQueryObject $document The phpQuery object representing the DOM document.
      * @param string $selector The CSS selector used to find the target element in the document.
@@ -62,8 +61,6 @@ class TemplateHandler
      *                                  Both keys and values should be strings.
      *
      * @return void
-     *
-     * @throws InvalidArgumentException if the attribute format is invalid.
      *
      * @example
      * ```php
@@ -193,29 +190,21 @@ class TemplateHandler
      *
      * @param phpQueryObject $document The HTML document containing the billing address form.
      * @param JTLSmarty $smarty The Smarty template engine instance for rendering the metadata.
-     * @param string $timestamp (optional) The timestamp metadata, defaults to an empty string.
-     * @param string $status (optional) The status metadata, defaults to an empty string.
-     * @param string $predictionsSerialized (optional) The serialized predictions, defaults to an empty string.
+     * @param AddressMeta $addressMeta Address metadata.
      */
     private function addBillingAMSMetaToAddressForm(
         phpQueryObject $document,
         JTLSmarty $smarty,
-        string $timestamp = '',
-        string $status = '',
-        string $predictionsSerialized = ''
+        AddressMeta $addressMeta
     ): void {
 
         if (!$this->hasBillingAddress($document)) {
             return;
         }
 
-        if (empty($predictionsSerialized)) {
-            $predictionsSerialized = '[]';
-        }
-
-        $smarty->assign('endereco_amsts', $timestamp)
-            ->assign('endereco_amsstatus', $status)
-            ->assign('endereco_amspredictions', $predictionsSerialized);
+        $smarty->assign('endereco_amsts', $addressMeta->getTimestamp())
+            ->assign('endereco_amsstatus', $addressMeta->getStatusAsString())
+            ->assign('endereco_amspredictions', $addressMeta->getPredictionsAsString());
 
         $file = self::TEMPLATE_BILLING_FORM_META;
         $html = $smarty->fetch($file);
@@ -235,33 +224,21 @@ class TemplateHandler
      *
      * @param phpQueryObject $document The HTML document containing the shipping address form.
      * @param JTLSmarty $smarty The Smarty template engine instance used for rendering the metadata.
-     * @param string $timestamp (optional) The timestamp metadata, defaults to an empty string if not provided.
-     * @param string $status (optional) The status metadata, defaults to an empty string if not provided.
-     * @param string $predictionsSerialized (optional) The serialized predictions metadata, defaults to '[]' if empty.
+     * @param AddressMeta $addressMeta Address metadata.
      */
     private function addShippingAMSMetaToAddressForm(
         phpQueryObject $document,
         JTLSmarty $smarty,
-        string $timestamp = '',
-        string $status = '',
-        string $predictionsSerialized = ''
+        AddressMeta $addressMeta
     ): void {
 
         if (!$this->hasShippingAddress($document)) {
             return;
         }
 
-        if (!$this->enderecoService->isBillingDifferentFromShipping()) {
-            return;
-        }
-
-        if (empty($predictionsSerialized)) {
-            $predictionsSerialized = '[]';
-        }
-
-        $smarty->assign('endereco_delivery_amsts', $timestamp)
-            ->assign('endereco_delivery_amsstatus', $status)
-            ->assign('endereco_delivery_amspredictions', $predictionsSerialized);
+        $smarty->assign('endereco_delivery_amsts', $addressMeta->getTimestamp())
+            ->assign('endereco_delivery_amsstatus', $addressMeta->getStatusAsString())
+            ->assign('endereco_delivery_amspredictions', $addressMeta->getPredictionsAsString());
 
         $file = self::TEMPLATE_SHIPPING_FORM_META;
         $html = $smarty->fetch($file);
@@ -497,20 +474,32 @@ class TemplateHandler
             ]
         );
 
-        $this->addBillingAMSMetaToAddressForm(
-            $document,
-            $smarty,
+        $billingAddressMeta = (new AddressMeta())->assign(
             $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'] ?? '',
             $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'] ?? '',
             $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions'] ?? ''
         );
 
+        $this->addBillingAMSMetaToAddressForm(
+            $document,
+            $smarty,
+            $billingAddressMeta
+        );
+
+        $shippingAddressMeta = new AddressMeta();
+
+        if (!$this->hasBillingAddress($document) || $this->enderecoService->isBillingDifferentFromShipping()) {
+            $shippingAddressMeta->assign(
+                $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'] ?? '',
+                $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'] ?? '',
+                $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions'] ?? ''
+            );
+        }
+
         $this->addShippingAMSMetaToAddressForm(
             $document,
             $smarty,
-            $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'] ?? '',
-            $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'] ?? '',
-            $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions'] ?? ''
+            $shippingAddressMeta
         );
 
         $this->addBillingAddressToConfirmationPage(

@@ -43,9 +43,6 @@ class Bootstrap extends Bootstrapper
         /** @var PluginInterface $plugin */
         $plugin = $this->getPlugin();
 
-        /** @var CryptoServiceInterface $cryptoService */
-        $cryptoService = Shop::Container()->getCryptoService();
-
         /** @var DefaultServicesInterface $container */
         $container =  Shop::Container();
 

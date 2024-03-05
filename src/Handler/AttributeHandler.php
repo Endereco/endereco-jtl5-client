@@ -7,6 +7,7 @@ use JTL\DB\NiceDB;
 use JTL\Checkout\Bestellung;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\DB\DbInterface;
+use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class AttributeHandler
 {
@@ -45,9 +46,7 @@ class AttributeHandler
 
         $this->saveAddressAttributesInDB(
             $order,
-            $addressMeta->enderecoamsstatus,
-            $addressMeta->enderecoamspredictions,
-            $addressMeta->enderecoamsts
+            $addressMeta
         );
     }
 
@@ -58,17 +57,13 @@ class AttributeHandler
      * predictions, and timestamp for a given order.
      *
      * @param Bestellung $order The order object.
-     * @param string $statuses The status information of the address.
-     * @param string $predictions The prediction information of the address.
-     * @param string $timestamp The timestamp related to the address information.
+     * @param AddressMeta $addressMeta Metainformation of the address.
      */
     public function saveAddressAttributesInDB(
         Bestellung $order,
-        string $statuses,
-        string $predictions,
-        string $timestamp
+        AddressMeta $addressMeta
     ): void {
-        if (!empty($statuses)) {
+        if ($addressMeta->hasAnyStatus()) {
             try {
                 $this->dbConnection->queryPrepared(
                     "INSERT INTO `tbestellattribut` 
@@ -83,13 +78,13 @@ class AttributeHandler
                     [
                         ':id1' => $order->kBestellung,
                         ':name1' => 'enderecoamsts',
-                        ':value1' => $timestamp,
+                        ':value1' => $addressMeta->getTimestamp(),
                         ':id2' => $order->kBestellung,
                         ':name2' => 'enderecoamsstatus',
-                        ':value2' => $statuses,
+                        ':value2' => $addressMeta->getStatusAsString(),
                         ':id3' => $order->kBestellung,
                         ':name3' => 'enderecoamspredictions',
-                        ':value3' => $predictions,
+                        ':value3' => $addressMeta->getPredictionsAsString()
                     ],
                     1
                 );

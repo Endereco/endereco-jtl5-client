@@ -133,16 +133,18 @@ class AddressCheckResult
     /**
      * Retrieves metadata related to the address check.
      *
-     * @return \stdClass An object containing metadata about the address check.
+     * @return AddressMeta An object containing metadata about the address check.
      */
-    public function getMeta(): \stdClass
+    public function getMeta(): AddressMeta
     {
-        $meta = new \stdClass();
-        $meta->enderecoamsts = (string) $this->timestamp;
-        $meta->enderecoamsstatus = implode(',', $this->statuses);
-        $meta->enderecoamspredictions = json_encode($this->predictions);
+        $addressMeta = new AddressMeta();
+        $addressMeta->assign(
+            $this->timestamp,
+            $this->statuses,
+            $this->predictions
+        );
 
-        return $meta;
+        return $addressMeta;
     }
 
     /**
@@ -158,13 +160,11 @@ class AddressCheckResult
     /**
      * Retrieves metadata after an automatic correction was applied.
      *
-     * @return \stdClass An object containing metadata after automatic correction.
+     * @return AddressMeta An object containing metadata after automatic correction.
      */
-    public function getMetaAfterAutomaticCorrection(): \stdClass
+    public function getMetaAfterAutomaticCorrection(): AddressMeta
     {
-        $meta = new \stdClass();
-        $meta->enderecoamsts = '' . $this->timestamp;
-
+        $addressMeta = new AddressMeta();
         $statusMapping = [
             'countryCode' => 'country_code_correct',
             'subdivisionCode' => 'country_code_correct',
@@ -183,10 +183,13 @@ class AddressCheckResult
             }
         }
 
-        $meta->enderecoamsstatus = implode(',', $statuses);
-        $meta->enderecoamspredictions = '[]';
+        $addressMeta->assign(
+            $this->timestamp,
+            $statuses,
+            []
+        );
 
-        return $meta;
+        return $addressMeta;
     }
 
     /**

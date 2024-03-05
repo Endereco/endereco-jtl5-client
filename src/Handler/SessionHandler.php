@@ -32,10 +32,8 @@ class SessionHandler
      * This method is responsible for closing active sessions. It checks if the request method is POST and
      * ensures the operation is only processed once per request. When called, it delegates to the
      * enderecoService to find current sessions and performs accounting on them.
-     *
-     * @param array<mixed,mixed> $args An array of arguments, though not explicitly used in the method.
      */
-    public function closeSessions(array $args): void
+    public function closeSessions(): void
     {
         if ('POST' === $_SERVER['REQUEST_METHOD']) {
             // Sometimes this method is called multiple time within one request, so we prevent multiple execution.

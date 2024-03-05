@@ -49,7 +49,8 @@ class CommentHandler
     private function isOrderCommentFeatureActive(): bool
     {
         $config = $this->plugin->getConfig();
-        return 'on' === $config->getOption('endereco_jtl5_client_ams_to_comment')->value;
+        $option = $config->getOption('endereco_jtl5_client_ams_to_comment');
+        return $option !== null && 'on' === $option->value;
     }
 
     /**
@@ -65,7 +66,7 @@ class CommentHandler
      * @return mixed Returns the delivery address if available, otherwise returns the
      *                                        billing address from the order.
      */
-    private function getDeliveryAddressFromOrder(Bestellung $order): mixed
+    private function getDeliveryAddressFromOrder(Bestellung $order)
     {
         if ($order->kLieferadresse) {
             $address = new Lieferadresse($order->kLieferadresse);
@@ -216,14 +217,18 @@ class CommentHandler
             return;
         }
 
-        if (empty($addressMeta->enderecoamsstatus)) {
+        if (!$addressMeta->hasAnyStatus()) {
             return;
         }
 
         $address = $this->getDeliveryAddressFromOrder($order);
         $originalComment = $order->cKommentar;
-        $mainMessage = $this->processStatusCodes($addressMeta->enderecoamsstatus, $this->plugin->getConfig());
-        $correctionAdvice = $this->processPredictions($addressMeta->enderecoamspredictions, $address);
+        $mainMessage = $this->processStatusCodes($addressMeta->getStatusAsString(), $this->plugin->getConfig());
+
+        $correctionAdvice = '';
+        if ($addressMeta->hasStatus('address_needs_correction')) {
+            $correctionAdvice = $this->processPredictions($addressMeta->getPredictionsAsString(), $address);
+        }
 
         // Update order comment logic
         if (!empty($mainMessage)) {

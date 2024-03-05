@@ -9,6 +9,7 @@ use JTL\Helpers\Text;
 use JTL\DB\NiceDB;
 use JTL\DB\DbInterface;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
+use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class AjaxHandler
 {
@@ -76,33 +77,33 @@ class AjaxHandler
         }
 
         $customer = $this->updateAddressData($customer, $params['updatedAddress']);
+        $addressMeta = (new AddressMeta())->assign(
+            $params['enderecometa']['ts'],
+            $params['enderecometa']['status'],
+            $params['enderecometa']['predictions']
+        );
 
         // Update customer in the database
         if ($customerExistsInDB) {
             $this->enderecoService->updateAddressInDB($customer);
             $this->enderecoService->updateAddressMetaInDB(
                 $customer,
-                $params['enderecometa']['ts'],
-                $params['enderecometa']['status'],
-                $params['enderecometa']['predictions'],
+                $addressMeta
             );
         }
 
         // Update customer in the session
         $this->enderecoService->updateAddressInSession($customer);
         $this->enderecoService->updateAddressMetaInSession(
-            $params['enderecometa']['ts'],
-            $params['enderecometa']['status'],
-            $params['enderecometa']['predictions'],
-            'EnderecoBillingAddressMeta'
+            'EnderecoBillingAddressMeta',
+            $addressMeta
         );
 
         $addressData = $this->extractAddressData($params);
 
         $this->enderecoService->updateAddressMetaInCache(
             $addressData,
-            $params['enderecometa']['status'],
-            $params['enderecometa']['predictions']
+            $addressMeta
         );
 
         if ($copyToShipping) {
@@ -133,6 +134,13 @@ class AjaxHandler
     {
         $isPresetKnown = !empty($_SESSION['shippingAddressPresetID']);
 
+        $deliveryAddress = $this->updateAddressData($_SESSION['Lieferadresse'], $params['updatedAddress']);
+        $addressMeta = (new AddressMeta())->assign(
+            $params['enderecometa']['ts'],
+            $params['enderecometa']['status'],
+            $params['enderecometa']['predictions']
+        );
+
         if ($isPresetKnown && class_exists('JTL\Checkout\DeliveryAddressTemplate')) {
             $presetAddress = new \JTL\Checkout\DeliveryAddressTemplate(
                 $this->dbConnection,
@@ -143,29 +151,22 @@ class AjaxHandler
             $this->enderecoService->updateAddressInDB($presetAddress);
             $this->enderecoService->updateAddressMetaInDB(
                 $presetAddress,
-                $params['enderecometa']['ts'],
-                $params['enderecometa']['status'],
-                $params['enderecometa']['predictions'],
+                $addressMeta
             );
         }
-
-        $deliveryAddress = $this->updateAddressData($_SESSION['Lieferadresse'], $params['updatedAddress']);
 
         // Update customer in the session
         $this->enderecoService->updateAddressInSession($deliveryAddress);
         $this->enderecoService->updateAddressMetaInSession(
-            $params['enderecometa']['ts'],
-            $params['enderecometa']['status'],
-            $params['enderecometa']['predictions'],
-            'EnderecoShippingAddressMeta'
+            'EnderecoShippingAddressMeta',
+            $addressMeta
         );
 
         $addressData = $this->extractAddressData($params);
 
         $this->enderecoService->updateAddressMetaInCache(
             $addressData,
-            $params['enderecometa']['status'],
-            $params['enderecometa']['predictions']
+            $addressMeta
         );
 
         return;
@@ -207,9 +208,6 @@ class AjaxHandler
      *                    - 'io': The IO handling object responsible for registering the method.
      *
      * @return void This method does not return a value.
-     *
-     * @throws \Exception Throws an exception if there are issues with JSON data decoding or
-     *                    in the registration process.
      *
      * Example Usage:
      * ```

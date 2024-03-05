@@ -14,6 +14,7 @@ use JTL\Plugin\PluginInterface;
 use Plugin\endereco_jtl5_client\src\Structures\AddressCheckResult;
 use InvalidArgumentException;
 use Exception;
+use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class EnderecoService
 {
@@ -131,9 +132,7 @@ class EnderecoService
             !$this->isObjectDeliveryAddress($address) &&
             !$this->isObjectDeliveryAddressTemplate($address)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
+            return new AddressCheckResult();
         }
 
         // Load config.
@@ -220,9 +219,7 @@ class EnderecoService
             !$this->isObjectDeliveryAddress($address) &&
             !$this->isObjectDeliveryAddressTemplate($address)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
+            return new AddressCheckResult();
         }
 
         // Create address check result.
@@ -303,9 +300,7 @@ class EnderecoService
             !$this->isObjectDeliveryAddress($addressObject) &&
             !$this->isObjectDeliveryAddressTemplate($addressObject)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
+            return;
         }
 
         if ($addressObject instanceof Customer) {
@@ -360,15 +355,13 @@ class EnderecoService
     public function applyAutocorrection(
         $addressObject,
         AddressCheckResult $checkResult
-    ): mixed {
+    ) {
         if (
             !$this->isObjectCustomer($addressObject) &&
             !$this->isObjectDeliveryAddress($addressObject) &&
             !$this->isObjectDeliveryAddressTemplate($addressObject)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
+            return $addressObject;
         }
 
         if ($checkResult->isAutomaticCorrection()) {
@@ -408,37 +401,25 @@ class EnderecoService
      * The function updates or initializes the address metadata in the session under
      * the given `space`.
      *
-     * @param string $timestamp The timestamp associated with the address update.
-     * @param mixed  $statuses The status or an array of statuses related to the address.
-     * @param mixed  $predictions The prediction or an array of predictions related to the address.
      * @param string $space The session key under which the address metadata is stored.
+     * @param AddressMeta $addressMeta Metainformation of the address.
      *
      * @return void
      */
     public function updateAddressMetaInSession(
-        string $timestamp,
-        $statuses,
-        $predictions,
-        string $space
+        string $space,
+        AddressMeta $addressMeta
     ): void {
-        if (is_array($statuses)) {
-            $statuses = implode(',', $statuses);
-        }
-
-        if (is_array($predictions)) {
-            $predictions = json_encode($predictions);
-        }
-
         if (!array_key_exists($space, $_SESSION)) {
             $_SESSION[$space] = [
-                'enderecoamsstatus' => $statuses,
-                'enderecoamspredictions' => $predictions,
-                'enderecoamsts' => $timestamp
+                'enderecoamsstatus' => $addressMeta->getStatusAsString(),
+                'enderecoamspredictions' => $addressMeta->getPredictionsAsString(),
+                'enderecoamsts' => $addressMeta->getTimestamp(),
             ];
         } else {
-            $_SESSION[$space]['enderecoamsstatus'] = $statuses;
-            $_SESSION[$space]['enderecoamspredictions'] = $predictions;
-            $_SESSION[$space]['enderecoamsts'] = $timestamp;
+            $_SESSION[$space]['enderecoamsstatus'] = $addressMeta->getStatusAsString();
+            $_SESSION[$space]['enderecoamspredictions'] = $addressMeta->getPredictionsAsString();
+            $_SESSION[$space]['enderecoamsts'] = $addressMeta->getTimestamp();
         }
     }
 
@@ -455,27 +436,15 @@ class EnderecoService
      * @param array<string,string> $addressData An associative array containing address components, such as
      *                           'countryCode', 'postalCode', 'locality', 'buildingNumber', 'streetName',
      *                           and optionally 'additionalInfo'.
-     * @param mixed $statuses A single status or an array of statuses related to the address
-     *                               check. If a string is provided, it should contain statuses separated
-     *                               by commas.
-     * @param mixed $predictions A JSON string or an array of prediction data. If a string is
-     *                                  provided, it is decoded into an array.
+     * @param AddressMeta $addressMeta Meta of the address.
+     *
      * @return void The method does not return a value but updates the session cache with the constructed
      *              response.
      */
     public function updateAddressMetaInCache(
         array $addressData,
-        $statuses,
-        $predictions
+        $addressMeta
     ) {
-        if (is_string($predictions)) {
-            $predictions = json_decode($predictions, true);
-        }
-
-        if (is_string($statuses)) {
-            $statuses = explode(',', $statuses);
-        }
-
         // Recreate the request object.
         $message = array(
             'jsonrpc' => '2.0',
@@ -505,8 +474,10 @@ class EnderecoService
             'jsonrpc' => '2.0',
             'id' => 1,
             'result' => [
-                'status' => $statuses,
-                'predictions' => $fakeAddressCheckResult->transformPredictionsToOuterFormat($predictions)
+                'status' => $addressMeta->getStatus(),
+                'predictions' => $fakeAddressCheckResult->transformPredictionsToOuterFormat(
+                    $addressMeta->getPredictions()
+                )
             ]
         ];
 
@@ -524,19 +495,19 @@ class EnderecoService
      * with $data values or defaults. Returns the addressMeta object.
      *
      * @param mixed $data Data to populate addressMeta.
-     * @return \stdClass Populated addressMeta object.
+     *
+     * @return AddressMeta Populated addressMeta object.
      */
-    public function createAddressMetaFromDBData($data): \stdClass
+    public function createAddressMetaFromDBData($data): AddressMeta
     {
-        $addressMeta = new \stdClass();
-        $addressMeta->enderecoamsts = 0;
-        $addressMeta->enderecoamsstatus = '';
-        $addressMeta->enderecoamspredictions = '';
+        $addressMeta = new AddressMeta();
 
         if ($data instanceof \stdClass) {
-            $addressMeta->enderecoamsts = $data->enderecoamsts ?? 0;
-            $addressMeta->enderecoamsstatus = $data->enderecoamsstatus ?? '';
-            $addressMeta->enderecoamspredictions = $data->enderecoamspredictions ?? '';
+            $addressMeta->assign(
+                $data->enderecoamsts ?? 0,
+                $data->enderecoamsstatus ?? '',
+                $data->enderecoamspredictions ?? '[]'
+            );
         }
 
         return $addressMeta;
@@ -688,7 +659,7 @@ class EnderecoService
     public function isObjectDeliveryAddressTemplate($object)
     {
         return class_exists('JTL\Checkout\DeliveryAddressTemplate')
-            && !$object instanceof \JTL\Checkout\DeliveryAddressTemplate;
+            && $object instanceof \JTL\Checkout\DeliveryAddressTemplate;
     }
 
     /**
@@ -723,34 +694,20 @@ class EnderecoService
      * inserting or updating the database record.
      *
      * @param mixed $addressObject An object representing either a customer or a delivery address.
-     * @param string $timestamp The timestamp associated with the address update.
-     * @param mixed $statuses The status or an array of statuses related to the address.
-     * @param mixed $predictions The prediction or an array of predictions related to the address.
+     * @param AddressMeta $addressMeta Metainformation of the address.
      *
      * @return void
      */
     public function updateAddressMetaInDB(
         $addressObject,
-        string $timestamp,
-        $statuses,
-        $predictions
+        $addressMeta
     ): void {
         if (
             !$this->isObjectCustomer($addressObject) &&
             !$this->isObjectDeliveryAddress($addressObject) &&
             !$this->isObjectDeliveryAddressTemplate($addressObject)
         ) {
-            throw new InvalidArgumentException(
-                'Address must be of type Lieferadresse, DeliveryAddressTemplate, or Customer'
-            );
-        }
-
-        if (is_array($statuses)) {
-            $statuses = implode(',', $statuses);
-        }
-
-        if (is_array($predictions)) {
-            $predictions = json_encode($predictions);
+            return;
         }
 
         if ($addressObject instanceof Customer) {
@@ -762,24 +719,9 @@ class EnderecoService
         }
 
         // Prepare meta values
-        $filteredTs = Text::filterXSS($timestamp);
-        $filteredStatus = Text::filterXSS($statuses);
-
-        if (is_string($predictions)) {
-            $decodedPredictions = json_decode($predictions, true);
-
-            // Check if json_decode returned a valid result.
-            if ($decodedPredictions !== null) {
-                $filteredPredictions = $predictions;
-            } else {
-                $filteredPredictions = '[]';
-            }
-        } elseif (is_array($predictions)) {
-            // If predictions is an array, encode it as JSON.
-            $filteredPredictions = json_encode($predictions);
-        } else {
-            $filteredPredictions = '[]';
-        }
+        $filteredTs = Text::filterXSS((string) $addressMeta->getTimestamp());
+        $filteredStatus = Text::filterXSS($addressMeta->getStatusAsString());
+        $filteredPredictions = $addressMeta->getPredictionsAsString();
 
         // SQL query with placeholders
         $sql = "INSERT INTO `xplugin_endereco_jtl5_client_tams` 
@@ -817,34 +759,33 @@ class EnderecoService
      *
      * @param Bestellung $order The order for which address metadata is required.
      *
-     * @return \stdClass An object containing the address metadata.
+     * @return AddressMeta An object containing the address metadata.
      */
-    public function getOrderAddressMeta(Bestellung $order): \stdClass
+    public function getOrderAddressMeta(Bestellung $order): AddressMeta
     {
-        $addressMeta = new \stdClass();
-        $addressMeta->enderecoamsts = '';
-        $addressMeta->enderecoamsstatus = '';
-        $addressMeta->enderecoamspredictions = '';
+        $addressMeta = new AddressMeta();
 
         if (!empty($order->kLieferadresse)) {
             if (
                 !empty($_SESSION['EnderecoShippingAddressMeta']) &&
                 !empty($_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
             ) {
-                $addressMeta->enderecoamsstatus = $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'];
-                $addressMeta->enderecoamspredictions
-                    = $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions'];
-                $addressMeta->enderecoamsts = $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'];
+                $addressMeta->assign(
+                    $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'],
+                    $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'],
+                    $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']
+                );
             }
         } elseif ($order->kKunde) {
             if (
                 !empty($_SESSION['EnderecoBillingAddressMeta']) &&
                 !empty($_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
             ) {
-                $addressMeta->enderecoamsstatus = $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'];
-                $addressMeta->enderecoamspredictions
-                    = $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions'];
-                $addressMeta->enderecoamsts = $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'];
+                $addressMeta->assign(
+                    $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'],
+                    $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'],
+                    $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']
+                );
             }
         }
 
@@ -868,7 +809,6 @@ class EnderecoService
      */
     public function doAccountings($sessionIds): void
     {
-
         // Get sessionids.
         if (empty($sessionIds)) {
             return;
