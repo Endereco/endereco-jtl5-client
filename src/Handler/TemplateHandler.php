@@ -3,6 +3,7 @@
 namespace Plugin\endereco_jtl5_client\src\Handler;
 
 use InvalidArgumentException;
+use JTL\phpQuery\phpQuery;
 use JTL\Plugin\PluginInterface;
 use JTL\Services\JTL\AlertServiceInterface;
 use JTL\phpQuery\phpQueryObject;
@@ -113,6 +114,75 @@ class TemplateHandler
             && count($document->find('[name="ort"]')) > 0
             && count($document->find('[name="strasse"]')) > 0
             && count($document->find('[name="hausnummer"]')) > 0;
+    }
+
+    /**
+     * Checks if a shipping address with values is present in the given HTML document.
+     *
+     * This method determines the presence and non-emptiness of specific form fields related
+     * to a shipping address in the provided HTML document. It focuses on fields with particular
+     * name attributes (encapsulating 'plz', 'ort', 'strasse' within the 'register[shipping_address]'
+     * scope) and verifies if at least two of these elements exist and have non-empty values in the document.
+     *
+     * @param phpQueryObject $document The HTML document to be searched for filled shipping address fields.
+     *
+     * @return bool Returns true if at least two required shipping address fields are found and have values,
+     *              false otherwise.
+     */
+    private function hasContentInShippingAddress(phpQueryObject $document): bool
+    {
+        $fieldsWithValues = 0;
+
+        $plzField = $document->find('[name="register[shipping_address][plz]"]');
+        if (count($plzField) > 0 && trim($plzField->val()) !== '') {
+            $fieldsWithValues++;
+        }
+
+        $ortField = $document->find('[name="register[shipping_address][ort]"]');
+        if (count($ortField) > 0 && trim($ortField->val()) !== '') {
+            $fieldsWithValues++;
+        }
+
+        $strasseField = $document->find('[name="register[shipping_address][strasse]"]');
+        if (count($strasseField) > 0 && trim($strasseField->val()) !== '') {
+            $fieldsWithValues++;
+        }
+
+        return $fieldsWithValues >= 2;
+    }
+
+    /**
+     * Checks if any 'kLieferadresse' elements with a value greater than 0 are checked in the HTML document.
+     *
+     * This method searches for input elements named 'kLieferadresse' with a value greater than 0.
+     * It then checks if any of these elements are checked. The method returns true if at least
+     * one matching element is found to be checked, indicating a selection or filled state.
+     *
+     * @param phpQueryObject $document The HTML document to be searched.
+     *
+     * @return bool Returns true if any 'kLieferadresse' element with value > 0 is checked, false otherwise.
+     */
+    private function isDeliverytemplateSelected(phpQueryObject $document): bool
+    {
+        // Find all elements with name 'kLieferadresse' and loop through them
+        $elements = $document->find('[name="kLieferadresse"]');
+        foreach ($elements as $element) {
+            // phpQuery objects encapsulate DOM elements, so $element is a DOMElement
+            // Use pq() to convert it back to a phpQueryObject
+            $pqElement = phpQuery::pq($element);
+
+            if (!$pqElement) {
+                continue;
+            }
+
+            // Check if the element's value is greater than 0 and if it is checked
+            if ((int)$pqElement->val() > 0 && $pqElement->is(':checked')) {
+                return true; // Return true if conditions are met
+            }
+        }
+
+        // Return false if no checked elements with value > 0 are found
+        return false;
     }
 
     /**
@@ -488,7 +558,7 @@ class TemplateHandler
 
         $shippingAddressMeta = new AddressMeta();
 
-        if (!$this->hasBillingAddress($document) || $this->enderecoService->isBillingDifferentFromShipping()) {
+        if ($this->hasContentInShippingAddress($document) && !$this->isDeliverytemplateSelected($document)) {
             $shippingAddressMeta->assign(
                 $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'] ?? '',
                 $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'] ?? '',
