@@ -11,6 +11,7 @@ use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Smarty\JTLSmarty;
 use InvalidArgumentException;
 use JTL\DB\DbInterface;
+use Plugin\endereco_jtl5_client\src\Structures\AddressCheckResult;
 use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class MetaHandler
@@ -408,6 +409,35 @@ class MetaHandler
 
         // Perform an address check using the endereco service
         $checkResult = $this->enderecoService->checkAddress($address);
+        $addressMeta = $checkResult->getMeta();
+
+        return $addressMeta;
+    }
+
+    /**
+     * Applies address metadata to the given address object and updates it if necessary.
+     *
+     * This method checks if the address object is of a type that can be updated (customer, delivery address,
+     * or delivery address template).
+     * If the address object is eligible, it converts the AddressMeta to an AddressCheckResult, applies automatic
+     * corrections if necessary, and updates the address and its metadata accordingly.
+     *
+     * @param mixed &$address The address object to be updated. This parameter is passed by reference to allow updating.
+     * @param AddressMeta $addressMeta The metadata associated with the address, used to determine corrections.
+     *
+     * @return AddressMeta The updated or original AddressMeta object.
+     */
+    private function applyAddressMetaToAddress(&$address, AddressMeta $addressMeta): AddressMeta
+    {
+        if (
+            !$this->enderecoService->isObjectCustomer($address) &&
+            !$this->enderecoService->isObjectDeliveryAddress($address) &&
+            !$this->enderecoService->isObjectDeliveryAddressTemplate($address)
+        ) {
+            return $addressMeta; // Return original meta.
+        }
+
+        $checkResult = AddressCheckResult::createFromMeta($addressMeta);
 
         // Apply automatic corrections if necessary and update the address
         if ($checkResult->isAutomaticCorrection() && !$checkResult->isConfirmedByCustomer()) {
@@ -464,10 +494,22 @@ class MetaHandler
      *
      * @param Customer $customer The customer whose billing address metadata needs to be updated.
      */
-    private function loadBillingAddressMetaToSession(Customer $customer): void
+    private function loadBillingAddressMetaToSession($customer): void
     {
-        // Query for existing metadata in the database
-        if (!empty($customer->kKunde)) {
+        if (!$this->enderecoService->isObjectCustomer($customer)) {
+            // Update the address metadata in the session
+            $this->enderecoService->updateAddressMetaInSession(
+                'EnderecoBillingAddressMeta',
+                new AddressMeta()
+            );
+        }
+
+        $canLoadFromDB = !empty($customer->kKunde);
+        $shouldCheckAgainstAPI = false;
+
+        $addressMeta = new AddressMeta();
+
+        if ($canLoadFromDB) {
             $addressMetaData = $this->dbConnection->queryPrepared(
                 "SELECT `xplugin_endereco_jtl5_client_tams`.*
              FROM `xplugin_endereco_jtl5_client_tams`
@@ -477,43 +519,35 @@ class MetaHandler
             );
 
             $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+        }
 
-            if (!$addressMeta->hasAnyStatus()) {
-                // Try to load from cache
-                $addressMeta = $this->tryToLoadMetaFromCache($customer);
+        // Determine if web api should be used.
+        if (!$addressMeta->hasAnyStatus()) {
+            if ($canLoadFromDB) {
+                // Existing customer in DB.
+                $shouldCheckAgainstAPI = $this->isExistingCustomerCheckActive();
+            } else {
+                // Guest or paypal express checkout import.
+                $isPayPalExpressCheck = $this->isPayPalExpressCheckout() && $this->isPayPalExpressCheckoutCheckActive();
+                $isGuestServersideCheck = $this->isExistingCustomerCheckActive() && !$this->isAnyExternalSource();
+                $shouldCheckAgainstAPI = $isPayPalExpressCheck || $isGuestServersideCheck;
             }
+        }
 
-            // If no metadata is found and an existing customer check is active, process the address check
-            if (!$addressMeta->hasAnyStatus() && $this->isExistingCustomerCheckActive()) {
-                $addressMeta = $this->processAddressCheck($customer);
-            }
-
-            if ($addressMeta->hasAnyStatus()) {
-                // Update address metadata in the database
-                $this->enderecoService->updateAddressMetaInDB(
-                    $customer,
-                    $addressMeta
-                );
-            }
-        } elseif ($this->isPayPalExpressCheckout() && $this->isPayPalExpressCheckoutCheckActive()) {
-            // Try to load from cache
+        // If no valid metadata found, try to load from cache or process address check
+        if (!$addressMeta->hasAnyStatus()) {
             $addressMeta = $this->tryToLoadMetaFromCache($customer);
+        }
 
-            if (!$addressMeta->hasAnyStatus()) {
-                // Process address check for PayPal Express Checkout
-                $addressMeta = $this->processAddressCheck($customer);
-            }
-        } elseif ($this->isExistingCustomerCheckActive() && !$this->isAnyExternalSource()) {
-            // Try to load from cache
-            $addressMeta = $this->tryToLoadMetaFromCache($customer);
+        if (!$addressMeta->hasAnyStatus() && $shouldCheckAgainstAPI) {
+            $addressMeta = $this->processAddressCheck($customer);
+        }
 
-            if (!$addressMeta->hasAnyStatus()) {
-                // Process address check for PayPal Express Checkout
-                $addressMeta = $this->processAddressCheck($customer);
-            }
-        } else {
-            // Try to load from cache
-            $addressMeta = $this->tryToLoadMetaFromCache($customer);
+        $addressMeta = $this->applyAddressMetaToAddress($customer, $addressMeta);
+
+        // Update database and session if applicable
+        if ($canLoadFromDB && $addressMeta->hasAnyStatus()) {
+            $this->enderecoService->updateAddressMetaInDB($customer, $addressMeta);
         }
 
         // Update the address metadata in the session
@@ -544,8 +578,12 @@ class MetaHandler
             );
         }
 
-        // Query for existing metadata in the database
-        if (!empty($deliveryAddress->kLieferadresse)) {
+        $canLoadFromDB = !empty($deliveryAddress->kLieferadresse);
+        $shouldCheckAgainstAPI = false;
+
+        $addressMeta = new AddressMeta();
+
+        if ($canLoadFromDB) {
             $addressMetaData = $this->dbConnection->queryPrepared(
                 "SELECT `xplugin_endereco_jtl5_client_tams`.*
              FROM `xplugin_endereco_jtl5_client_tams`
@@ -554,49 +592,39 @@ class MetaHandler
                 1
             );
             $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+        }
 
-            if (!$addressMeta->hasAnyStatus()) {
-                // Try to load from cache
-                $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
+        // Determine if web api should be used.
+        if (!$addressMeta->hasAnyStatus()) {
+            if ($canLoadFromDB) {
+                // Existing customer in DB.
+                $shouldCheckAgainstAPI = $this->isExistingCustomerCheckActive();
+            } else {
+                // Guest or paypal express checkout import.
+                $isPayPalExpressCheck = $this->isPayPalExpressCheckout() && $this->isPayPalExpressCheckoutCheckActive();
+                $isGuestServersideCheck = $this->isExistingCustomerCheckActive() && !$this->isAnyExternalSource();
+                $shouldCheckAgainstAPI = $isPayPalExpressCheck || $isGuestServersideCheck;
             }
+        }
 
-            // If no metadata is found and an existing customer check is active, process the address check
-            if (!$addressMeta->hasAnyStatus() && $this->isExistingCustomerCheckActive()) {
-                $addressMeta = $this->processAddressCheck($deliveryAddress);
-            }
+        // If no valid metadata found, try to load from cache or process address check
+        if (!$addressMeta->hasAnyStatus()) {
+            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
+        }
 
-            if ($addressMeta->hasAnyStatus()) {
-                // Update address metadata in the database
-                $this->enderecoService->updateAddressMetaInDB(
-                    $deliveryAddress,
-                    $addressMeta
-                );
-            }
-        } elseif (
-            $this->isPayPalExpressCheckout() &&
-            $this->isPayPalExpressCheckoutCheckActive() &&
+        if (
+            !$addressMeta->hasAnyStatus() &&
+            $shouldCheckAgainstAPI &&
             $this->enderecoService->isBillingDifferentFromShipping()
         ) {
-            // Try to load from cache
-            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
-            // Process address check for PayPal Express Checkout with different billing and shipping addresses
-            if (!$addressMeta->hasAnyStatus()) {
-                $addressMeta = $this->processAddressCheck($deliveryAddress);
-            }
-        } elseif (
-            $this->isExistingCustomerCheckActive() &&
-            $this->enderecoService->isBillingDifferentFromShipping() &&
-            !$this->isAnyExternalSource()
-        ) {
-            // Try to load from cache
-            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
-            // Process address check for PayPal Express Checkout with different billing and shipping addresses
-            if (!$addressMeta->hasAnyStatus()) {
-                $addressMeta = $this->processAddressCheck($deliveryAddress);
-            }
-        } else {
-            // Try to load from cache
-            $addressMeta = $this->tryToLoadMetaFromCache($deliveryAddress);
+            $addressMeta = $this->processAddressCheck($deliveryAddress);
+        }
+
+        $addressMeta = $this->applyAddressMetaToAddress($deliveryAddress, $addressMeta);
+
+        // Update database and session if applicable
+        if ($canLoadFromDB && $addressMeta->hasAnyStatus()) {
+            $this->enderecoService->updateAddressMetaInDB($deliveryAddress, $addressMeta);
         }
 
         // Update the address metadata in the session

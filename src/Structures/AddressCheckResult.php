@@ -27,6 +27,23 @@ class AddressCheckResult
     private int $timestamp = 0;
 
     /**
+     * Creates an AddressCheckResult instance from an AddressMeta instance.
+     *
+     * @param AddressMeta $addressMeta The AddressMeta instance to recreate from.
+     *
+     * @return AddressCheckResult Returns an instance of AddressCheckResult.
+     */
+    public static function createFromMeta(AddressMeta $addressMeta): AddressCheckResult
+    {
+        $newInstance = new AddressCheckResult();
+        $newInstance->timestamp = $addressMeta->getTimestamp();
+        $newInstance->statuses = $addressMeta->getStatus();
+        $newInstance->predictions = $addressMeta->getPredictions();
+
+        return $newInstance;
+    }
+
+    /**
      * Transforms address predictions from an external format to an internal one.
      *
      * @param array<array<string,string>> $predictions Array of address predictions in external format.
