@@ -9,6 +9,7 @@ use JTL\DB\NiceDB;
 use JTL\Plugin\PluginInterface;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Smarty\JTLSmarty;
+use JTL\Shop;
 use InvalidArgumentException;
 use JTL\DB\DbInterface;
 use Plugin\endereco_jtl5_client\src\Structures\AddressCheckResult;
@@ -19,7 +20,6 @@ class MetaHandler
     private DbInterface $dbConnection;
     private EnderecoService $enderecoService;
     private PluginInterface $plugin;
-    private JTLSmarty $smarty;
 
     private bool $operationProcessed = false;
 
@@ -30,18 +30,15 @@ class MetaHandler
      *
      * @param PluginInterface $plugin The instance of the plugin.
      * @param DbInterface $dbConnection The database connection instance.
-     * @param EnderecoService $enderecoService The service for endereco-related functionalities.
      */
     public function __construct(
         PluginInterface $plugin,
         DbInterface $dbConnection,
-        EnderecoService $enderecoService,
-        JTLSmarty $smarty
+        EnderecoService $enderecoService
     ) {
         $this->plugin = $plugin;
         $this->dbConnection = $dbConnection;
         $this->enderecoService = $enderecoService;
-        $this->smarty = $smarty;
     }
 
     /**
@@ -663,7 +660,7 @@ class MetaHandler
                 isset($_SESSION['Lieferadresse']) &&
                 empty($_SESSION['Lieferadresse']->kLieferadresse) &&
                 empty($_SESSION['shippingAddressPresetID']) &&
-                empty($this->smarty->getTemplateVars('shippingAddressPresetID'))
+                empty(Shop::Smarty()->getTemplateVars('shippingAddressPresetID'))
             ) {
                 $deliveryAddress = $_SESSION['Lieferadresse'];
                 $this->loadShippingAddressMetaToSession($deliveryAddress);

@@ -55,9 +55,6 @@ class Bootstrap extends Bootstrapper
         /** @var AlertServiceInterface $alertService */
         $alertService = $container->getAlertService();
 
-        /** @var JTLSmarty $smarty */
-        $smarty = Shop::Smarty();
-
         $enderecoService = new EnderecoService(
             $plugin,
             $dbConnection
@@ -82,8 +79,7 @@ class Bootstrap extends Bootstrapper
         $metaHandler = new MetaHandler(
             $plugin,
             $dbConnection,
-            $enderecoService,
-            $smarty
+            $enderecoService
         );
 
         $sessionHandler = new SessionHandler(
