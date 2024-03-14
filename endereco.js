@@ -68,6 +68,26 @@ EnderecoIntegrator.resolvers.salutationRead = function(value) {
     });
 }
 
+EnderecoIntegrator.amsFilters.isAddressMetaStillRelevant.push((isStillRelevant, EAO) => {
+    // The rest of the logic is only valid for shipping addresses.
+    if (EAO.addressType !== 'shipping_address') {
+        return isStillRelevant;
+    }
+
+    const radioButtons = document.querySelectorAll('input[type="radio"][name="kLieferadresse"]');
+
+    const isInvalid = Array.from(radioButtons).some(radio => {
+        const value = parseInt(radio.value, 10);
+        return value > 0 && radio.checked;
+    });
+
+    if (isInvalid) {
+        isStillRelevant = false;
+    }
+
+    return isStillRelevant;
+});
+
 if (window.EnderecoIntegrator) {
     window.EnderecoIntegrator = merge(EnderecoIntegrator, window.EnderecoIntegrator);
 } else {
