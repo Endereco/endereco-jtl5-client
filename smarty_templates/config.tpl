@@ -143,5 +143,47 @@
         //window.EnderecoIntegrator.countryCodeToNameMapping = {};
         window.EnderecoIntegrator.ready = true;
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const sampleRadio = document.querySelector('input[type="radio"][name="kLieferadresse"]');
+
+        if (!sampleRadio) {
+            return;
+        }
+
+        const form = sampleRadio.closest('form');
+        
+        if (!form) {
+            return;
+        }
+
+        function checkAndSetAddressStatus() {
+            const radios = form.querySelectorAll('input[type="radio"][name="kLieferadresse"]');
+            let isAnyChecked = false;
+
+            for (const radio of radios) {
+                if (radio.checked && parseInt(radio.value) > 0) {
+                    isAnyChecked = true;
+                    break;
+                }
+            }
+
+            if (
+                isAnyChecked && 
+                window.EnderecoIntegrator && 
+                window.EnderecoIntegrator.integratedObjects.shipping_address_ams
+            ) {
+                window.EnderecoIntegrator.integratedObjects.shipping_address_ams.addressStatus = [];
+            }
+        }
+
+        checkAndSetAddressStatus();
+
+        form.addEventListener('change', function(event) {
+            if (event.target.type === 'radio' && event.target.name === 'kLieferadresse') {
+                checkAndSetAddressStatus();
+            }
+        });
+    });
 </script>
 {/literal}
