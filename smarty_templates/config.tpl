@@ -55,10 +55,12 @@
     }
     function enderecoInitPS(prefix, config) {
         if (undefined !== window.EnderecoIntegrator.initEmailServices) {
-            window.EnderecoIntegrator.initPersonServices(prefix, config);
+            const $EPO = window.EnderecoIntegrator.initPersonServices(prefix, config);
+            setBlurListener($EPO, prefix);
         } else {
             window.EnderecoIntegrator.onLoad.push( function() {
-                window.EnderecoIntegrator.initPersonServices(prefix, config);
+                const $EPO = window.EnderecoIntegrator.initPersonServices(prefix, config);
+                setBlurListener($EPO, prefix);
             });
         }
     }
