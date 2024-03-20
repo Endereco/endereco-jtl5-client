@@ -146,13 +146,15 @@ class AjaxHandler
                 $this->dbConnection,
                 $_SESSION['shippingAddressPresetID']
             );
-            $presetAddress = $this->updateAddressData($presetAddress, $params['updatedAddress']);
 
-            $this->enderecoService->updateAddressInDB($presetAddress);
-            $this->enderecoService->updateAddressMetaInDB(
-                $presetAddress,
-                $addressMeta
-            );
+            if (!empty($presetAddress->kLieferadresse)) {
+                $presetAddress = $this->updateAddressData($presetAddress, $params['updatedAddress']);
+                $this->enderecoService->updateAddressInDB($presetAddress);
+                $this->enderecoService->updateAddressMetaInDB(
+                    $presetAddress,
+                    $addressMeta
+                );
+            }
         }
 
         if (!empty($_SESSION['Lieferadresse']->kLieferadresse)) {

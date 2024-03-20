@@ -693,20 +693,8 @@ class MetaHandler
             // Load billing address metadata for the current customer
             $this->loadBillingAddressMetaToSession($_SESSION['Kunde']);
 
-            // Load metadata for either a preset shipping address or the default one in the session
-            if (
-                !empty($_SESSION['shippingAddressPresetID']) &&
-                class_exists('JTL\Checkout\DeliveryAddressTemplate')
-            ) {
-                $deliveryAddress = new \JTL\Checkout\DeliveryAddressTemplate(
-                    $this->dbConnection,
-                    $_SESSION['shippingAddressPresetID']
-                );
-                $this->loadShippingAddressMetaToSession($deliveryAddress);
-            } else {
-                $deliveryAddress = $_SESSION['Lieferadresse'];
-                $this->loadShippingAddressMetaToSession($deliveryAddress);
-            }
+            // Load metadata for the Lieferadresse in SESSION
+            $this->loadShippingAddressMetaToSession($_SESSION['Lieferadresse']);
         }
     }
 }
