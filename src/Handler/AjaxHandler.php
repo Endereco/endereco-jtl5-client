@@ -155,7 +155,14 @@ class AjaxHandler
             );
         }
 
-        // Update customer in the session
+        if (!empty($_SESSION['Lieferadresse']->kLieferadresse)) {
+            $this->enderecoService->updateAddressMetaInDB(
+                $_SESSION['Lieferadresse'],
+                $addressMeta
+            );
+        }
+
+        // Update delivery address in the session
         $this->enderecoService->updateAddressInSession($deliveryAddress);
         $this->enderecoService->updateAddressMetaInSession(
             'EnderecoShippingAddressMeta',
