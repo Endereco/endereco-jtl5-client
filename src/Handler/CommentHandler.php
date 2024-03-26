@@ -209,7 +209,7 @@ class CommentHandler
     {
         /** @var Bestellung $order */
         $order = $args['oBestellung'];
-        $addressMeta = $this->enderecoService->getOrderAddressMeta($order);
+        $addressMeta = $this->enderecoService->getOrderAddressMeta();
 
         $leaveComment = $this->isOrderCommentFeatureActive();
 

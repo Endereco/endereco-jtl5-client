@@ -753,40 +753,33 @@ class EnderecoService
     /**
      * Retrieves metadata related to an order's address.
      *
-     * Fetches address metadata such as status, pred
-     * ictions, and timestamps from session data
+     * Fetches address metadata such as status, predictions, and timestamps from session data
      * based on whether the order has a delivery address or uses the customer's address.
-     *
-     * @param Bestellung $order The order for which address metadata is required.
      *
      * @return AddressMeta An object containing the address metadata.
      */
-    public function getOrderAddressMeta(Bestellung $order): AddressMeta
+    public function getOrderAddressMeta(): AddressMeta
     {
         $addressMeta = new AddressMeta();
 
-        if (!empty($order->kLieferadresse)) {
-            if (
-                !empty($_SESSION['EnderecoShippingAddressMeta']) &&
-                !empty($_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
-            ) {
-                $addressMeta->assign(
-                    $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'],
-                    $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'],
-                    $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']
-                );
-            }
-        } elseif ($order->kKunde) {
-            if (
-                !empty($_SESSION['EnderecoBillingAddressMeta']) &&
-                !empty($_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
-            ) {
-                $addressMeta->assign(
-                    $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'],
-                    $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'],
-                    $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']
-                );
-            }
+        if (
+            !empty($_SESSION['EnderecoShippingAddressMeta']) &&
+            !empty($_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'])
+        ) {
+            $addressMeta->assign(
+                $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'],
+                $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'],
+                $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions']
+            );
+        } elseif (
+            !empty($_SESSION['EnderecoBillingAddressMeta']) &&
+            !empty($_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'])
+        ) {
+            $addressMeta->assign(
+                $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'],
+                $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'],
+                $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions']
+            );
         }
 
         return $addressMeta;

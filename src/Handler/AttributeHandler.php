@@ -42,7 +42,7 @@ class AttributeHandler
         /** @var Bestellung $order */
         $order = $args['oBestellung'];
 
-        $addressMeta = $this->enderecoService->getOrderAddressMeta($order);
+        $addressMeta = $this->enderecoService->getOrderAddressMeta();
 
         $this->saveAddressAttributesInDB(
             $order,
