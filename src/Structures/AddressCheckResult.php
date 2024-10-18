@@ -191,13 +191,17 @@ class AddressCheckResult
             'buildingNumber' => 'building_number_correct',
             'additionalInfo' => 'additional_info_correct',
         ];
-
-        $firstPredictionKeys = array_keys($this->predictions[0]);
-        $statuses = ['A1000', 'address_correct', 'address_selected_automatically'];
-        foreach ($firstPredictionKeys as $key) {
-            if (array_key_exists($key, $statusMapping)) {
-                $statuses[] = $statusMapping[$key];
+        $statuses = [];
+        $autocorrectionData = $this->getAutocorrectionArray();
+        if (!empty($autocorrectionData)) {
+            $firstPredictionKeys = array_keys($autocorrectionData);
+            $statuses = ['A1000', 'address_correct', 'address_selected_automatically'];
+            foreach ($firstPredictionKeys as $key) {
+                if (array_key_exists($key, $statusMapping)) {
+                    $statuses[] = $statusMapping[$key];
+                }
             }
+            $statuses = array_values(array_unique($statuses));
         }
 
         $addressMeta->assign(

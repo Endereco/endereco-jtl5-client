@@ -245,7 +245,8 @@ class EnderecoService
             $message['params']['houseNumber'] = html_entity_decode($address->cHausnummer);
         }
 
-        $message['params']['additionalInfo'] = $address->cAdressZusatz ?? '';
+        $additionalInfos = $address->cAdressZusatz ?? '';
+        $message['params']['additionalInfo'] = html_entity_decode($additionalInfos);
 
         $response = $_SESSION['EnderecoRequestCache'][$this->createRequestKey($message)] ?? null;
 

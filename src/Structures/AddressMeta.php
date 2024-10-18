@@ -95,7 +95,12 @@ class AddressMeta
     public function setPredictions($predictions): void
     {
         if (is_string($predictions)) {
-            $predictions = json_decode($predictions, true);
+            $decodedPredictions = json_decode($predictions, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $predictions = $decodedPredictions;
+            } else {
+                $predictions = [];
+            }
         } elseif (is_null($predictions)) {
             $predictions = [];
         }
