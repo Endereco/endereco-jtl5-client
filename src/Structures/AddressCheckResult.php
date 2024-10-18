@@ -184,12 +184,12 @@ class AddressCheckResult
         $addressMeta = new AddressMeta();
         $statusMapping = [
             'countryCode' => 'country_code_correct',
-            'subdivisionCode' => 'country_code_correct',
-            'postalCode' => 'country_code_correct',
-            'locality' => 'country_code_correct',
-            'streetName' => 'country_code_correct',
-            'buildingNumber' => 'country_code_correct',
-            'additionalInfo' => 'country_code_correct',
+            'subdivisionCode' => 'subdivision_code_correct',
+            'postalCode' => 'postal_code_correct',
+            'locality' => 'locality_correct',
+            'streetName' => 'street_name_correct',
+            'buildingNumber' => 'building_number_correct',
+            'additionalInfo' => 'additional_info_correct',
         ];
 
         $firstPredictionKeys = array_keys($this->predictions[0]);
