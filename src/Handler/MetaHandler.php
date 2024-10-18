@@ -690,11 +690,56 @@ class MetaHandler
 
         // Handling the scenario in "Checkout" on the last page.
         if (\HOOK_BESTELLVORGANG_PAGE_STEPBESTAETIGUNG === (int) $args[0]) {
+            // Early stop for any possible address correction logic in the last step. We just empty the session.
+            if ($this->isPreAuthBlacklist()) {
+                $this->enderecoService->updateAddressMetaInSession(
+                    'EnderecoBillingAddressMeta',
+                    new AddressMeta()
+                );
+                $this->enderecoService->updateAddressMetaInSession(
+                    'EnderecoShippingAddressMeta',
+                    new AddressMeta()
+                );
+                return;
+            }
+
             // Load billing address metadata for the current customer
             $this->loadBillingAddressMetaToSession($_SESSION['Kunde']);
 
             // Load metadata for the Lieferadresse in SESSION
             $this->loadShippingAddressMetaToSession($_SESSION['Lieferadresse']);
         }
+    }
+
+    /**
+     * Checks if the currently selected payment method is in the pre-authorization blacklist.
+     *
+     * Some payment methods are currently not compatible with Endereco's address validation
+     * and correction process. For these methods, address changes (corrections) might lead
+     * to authorization problems with the payment provider, as such changes could be
+     * recognized as potential fraud.
+     *
+     * Until we extend our correction strategies in the plugin, these payments should be
+     * excluded from the address validation logic. This ensures that no unexpected address
+     * changes occur on the final checkout page for these payment methods.
+     *
+     * Currently, this method only checks for Klarna payments. If more payment methods
+     * need to be added to the blacklist in the future, this method should be updated.
+     *
+     * @return bool Returns true if the current payment method is in the blacklist, false otherwise.
+     */
+    public function isPreAuthBlacklist()
+    {
+        $paymentMethodId = $_SESSION['Zahlungsart']->cModulId;
+
+        // Check for incompatible payment methods
+        $blacklistedKeywords = ['klarnapaylater', 'klarnapaynow', 'klarnasliceit'];
+        foreach ($blacklistedKeywords as $keyword) {
+            if (stripos($paymentMethodId, $keyword) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
