@@ -826,7 +826,7 @@ class EnderecoService
                     'Content-Type' => 'application/json',
                     'X-Auth-Key' => $config->getValue('endereco_jtl5_client_api_key'),
                     'X-Transaction-Id' => $sessionId,
-                    'X-Transaction-Referer' => $_SERVER['HTTP_REFERER'],
+                    'X-Transaction-Referer' => $_SERVER['HTTP_REFERER'] ?? 'not_set',
                     'X-Agent' => $this->clientInfo,
                 );
                 $this->sendRequest($message, $newHeaders);
@@ -848,7 +848,7 @@ class EnderecoService
                     'Content-Type' => 'application/json',
                     'X-Auth-Key' => $config->getValue('endereco_jtl5_client_api_key'),
                     'X-Transaction-Id' => 'not_required',
-                    'X-Transaction-Referer' => $_SERVER['HTTP_REFERER'],
+                    'X-Transaction-Referer' => $_SERVER['HTTP_REFERER'] ?? 'not_set',
                     'X-Agent' => $this->clientInfo,
                 );
                 $this->sendRequest($message, $newHeaders);
