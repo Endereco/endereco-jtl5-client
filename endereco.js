@@ -131,8 +131,8 @@ EnderecoIntegrator.afterAMSActivation.push( function(EAO) {
     if (!!EAO.onSubmitUnblock) {
         EAO.onSubmitUnblock.push(function(AddressObject) {
             AddressObject.forms.forEach( function(form) {
-                if (form.querySelector('button[type="submit"][disabled]')) {
-                    form.querySelector('button[type="submit"][disabled]').removeAttribute('disabled');
+                if (form.querySelector('[type="submit"][disabled]')) {
+                    form.querySelector('[type="submit"][disabled]').removeAttribute('disabled');
                 }
             });
         });
