@@ -426,6 +426,15 @@ class TemplateHandler
             return;
         }
 
+        $isJTL51 = false;
+        if (defined('APPLICATION_VERSION')) {
+            $version = APPLICATION_VERSION;
+            /** @phpstan-ignore-next-line */
+            if (version_compare($version, '5.1.0', '>=') && version_compare($version, '5.2.0', '<')) {
+                $isJTL51 = true;
+            }
+        }
+
         // Set smarty values for billing.
         $smarty->assign('endereco_billing_countrycode', $countryCode)
             ->assign('endereco_billing_postal_code', $postalCode)
@@ -436,6 +445,7 @@ class TemplateHandler
             ->assign('endereco_billing_ts', $timestamp)
             ->assign('endereco_billing_status', $status)
             ->assign('endereco_billing_predictions', $predictionsSerialized)
+            ->assign('endereco_jtl_5_1_legacymode', $isJTL51)
             ->assign(
                 'endereco_shipping_address_is_different',
                 $this->enderecoService->isBillingDifferentFromShipping()
@@ -490,6 +500,15 @@ class TemplateHandler
             return;
         }
 
+        $isJTL51 = false;
+        if (defined('APPLICATION_VERSION')) {
+            $version = APPLICATION_VERSION;
+            /** @phpstan-ignore-next-line */
+            if (version_compare($version, '5.1.0', '>=') && version_compare($version, '5.2.0', '<')) {
+                $isJTL51 = true;
+            }
+        }
+
         // Set smarty values for billing.
         $smarty->assign('endereco_shipping_countrycode', $countryCode)
             ->assign('endereco_shipping_postal_code', $postalCode)
@@ -499,7 +518,8 @@ class TemplateHandler
             ->assign('endereco_shipping_addinfo', $additionalInfo)
             ->assign('endereco_shipping_ts', $timestamp)
             ->assign('endereco_shipping_status', $status)
-            ->assign('endereco_shipping_predictions', $predictionsSerialized);
+            ->assign('endereco_shipping_predictions', $predictionsSerialized)
+            ->assign('endereco_jtl_5_1_legacymode', $isJTL51);
 
         $html = $smarty->fetch(self::TEMPLATE_CHECKOUT_FAKE_SHIPPING_FORM);
 

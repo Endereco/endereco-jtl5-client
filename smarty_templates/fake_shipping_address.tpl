@@ -24,6 +24,12 @@
     </div>
 
     <script>
+        var ioUrl = ''
+        {if $endereco_jtl_5_1_legacymode}
+            ioUrl = 'io.php?io=endereco_inner_request';
+        {else}
+            ioUrl = 'io?io=endereco_inner_request';
+        {/if}
         {literal}
         (function() {
             function afterCreateHandler(EAO) {
@@ -52,7 +58,7 @@
                 EAO._awaits++;
                 EAO.util.axios({
                     method: 'post',
-                    url: 'io.php?io=endereco_inner_request',
+                    url: ioUrl,
                     data: {
                         method: 'updateShippingAddress',
                         params: {

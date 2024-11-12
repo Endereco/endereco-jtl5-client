@@ -4,3 +4,4 @@ vendor
 shops
 package-lock.json
 composer.lock
+*.zip

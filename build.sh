@@ -14,7 +14,9 @@ rm endereco_jtl5_client/package.json
 rm endereco_jtl5_client/endereco.scss
 rm endereco_jtl5_client/endereco.js
 rm endereco_jtl5_client/composer.json
-rm endereco_jtl5_client/build.sh
+rm endereco_jtl5_client/*.sh
+rm endereco_jtl5_client/config.JTL-Shop.ini.shops.php
+rm endereco_jtl5_client/*.neon
 
 zip -r endereco-jtl5-client-store-$branch.zip endereco_jtl5_client
 
