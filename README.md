@@ -8,9 +8,9 @@ Korrekturvorschläge angezeigt, sodass der Kunde zeitnah die Adressfehler beseit
 
 Auch Adressen von Bestandskunden und aus PayPal Express Checkout können optional geprüft werden. Der Kunde bekommt einen Aufruf zur Korrektur, bevor er seine Bestellung abschließen kann.
 
-Das Plugin kann kostenlos 30 Tage getestet werden. Es gibt keine Vertragsbindung. Frage einfach nach dem API-Key auf unseren Website an: https://www.endereco.de/jtl
+Das Plugin kann kostenlos 30 Tage getestet werden. Es gibt keine Vertragsbindung. Frage einfach nach dem API-Key auf unseren Website an: https://www.endereco.de/integrationen/jtlshop/
 
-Installationsanleitung: https://www.endereco.de/installationsanleitung_jtl/
+Installationsanleitung: https://www.endereco.de/dokumentation/installationsanleitung-fuer-jtl-5/
 
 Plugin Code und issues: https://github.com/Endereco/endereco-jtl5-client
 
