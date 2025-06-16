@@ -16,7 +16,7 @@ Every commit must meet these requirements:
 1. **Stable State**: Each commit should leave the codebase in a working, stable state
 2. **Quality Assurance**: Run `composer run qa` - it must pass without errors
 3. **Installation Tests**: The plugin must be installable and uninstallable with every commit
-4. **JTL-Shop Version Compatibility**: Ensure compatibility across supported JTL-Shop 5.x versions (5.1.7, 5.2.6, 5.3.4, 5.4.0)
+4. **JTL-Shop Version Compatibility**: Ensure compatibility across supported JTL-Shop 5.x versions (5.1.7, 5.2.6, 5.3.4, 5.4.0, 5.5.1)
 5. **Don't break**: The existing functionality should not break 
 
 ## Commit Message Guidelines
@@ -88,7 +88,7 @@ findings documented in DEV-789.
 - Test with all supported PHP versions
 
 **JTL-Shop Version Support:**
-- Test with JTL-Shop 5.1.7, 5.2.6, 5.3.4, and 5.4.0 configurations
+- Test with JTL-Shop 5.1.7, 5.2.6, 5.3.4, 5.4.0 and 5.5.1 configurations
 - Use appropriate PHPStan configuration files for each version
 - Ensure plugin works across all supported JTL-Shop versions
 
@@ -100,7 +100,7 @@ Before submitting your PR:
 2. ✅ `composer run qa` passes without errors
 3. ✅ Plugin installs and uninstalls successfully
 4. ✅ Feature branch created from `master` branch
-5. ✅ JTL-Shop version compatibility tested (5.1.7, 5.2.6, 5.3.4, 5.4.0)
+5. ✅ JTL-Shop version compatibility tested (5.1.7, 5.2.6, 5.3.4, 5.4.0, 5.5.1)
 6. ✅ PHP version compatibility verified using `test_php_versions.sh`
 
 ## Quality Checklist
@@ -127,3 +127,39 @@ If you're unsure about any of these requirements or need clarification on the co
 *Note: These guidelines ensure code quality, maintainability, and a clear project history. Following them helps reviewers understand your changes and makes the codebase easier to maintain long-term.*
 
 ---
+
+## DDEV setup for development and testing
+
+The following .yaml file acts a base configuration for DDEV:
+
+```yaml
+name: jtl-shop-x.x.x
+type: php
+docroot: ""
+php_version: "x.x"
+webserver_type: apache-fpm
+xdebug_enabled: false
+additional_hostnames: []
+additional_fqdns: []
+database:
+  type: mariadb
+  version: "10.11"
+use_dns_when_possible: true
+composer_version: "2"
+web_environment: []
+corepack_enable: false
+webimage_extra_packages: [build-essential]
+disable_upload_dirs_warning: true
+```
+Use the JTL shop version for the name and ensure the correct php version is set.
+The following php versions are officially recommended:
+
+| JTL Version | PHP Version   |
+|-------------|---------------|
+| 5.1.*       | 7.3, 7.4, 8.0 |
+| 5.2.0       | 8.1           |
+| 5.2.3+      | 8.1, 8.2      |
+| 5.3.*       | 8.1, 8.2, 8.3 |
+| 5.4.*       | 8.1, 8.2, 8.3 |
+| 5.5.*       | 8.2, 8.3, 8.4 |
+
