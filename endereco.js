@@ -103,6 +103,8 @@ window.EnderecoIntegrator.waitUntilReady().then( function() {
         ) {
             $('.city_input').typeahead('destroy');
             $('.city_input').removeClass('bg-typeahead-fix');
+            $('.city_input').closest('.typeahead-required').removeClass('typeahead-required');
+
             clearInterval($removeTypeahead);
         }
     }, 100);
