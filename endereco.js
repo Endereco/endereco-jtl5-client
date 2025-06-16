@@ -103,6 +103,8 @@ window.EnderecoIntegrator.waitUntilReady().then( function() {
         ) {
             $('.city_input').typeahead('destroy');
             $('.city_input').removeClass('bg-typeahead-fix');
+            $('[name="ort"]').closest('.typeahead-required').removeClass('typeahead-required');
+
             clearInterval($removeTypeahead);
         }
     }, 100);
@@ -115,6 +117,7 @@ window.EnderecoIntegrator.waitUntilReady().then( function() {
         ) {
             $('[name="register[shipping_address][ort]"]').typeahead('destroy');
             $('[name="register[shipping_address][ort]"]').removeClass('bg-typeahead-fix');
+            $('[name="register[shipping_address][ort]"]').closest('.typeahead-required').removeClass('typeahead-required');
             clearInterval($removeTypeahead2);
         }
     }, 100);
