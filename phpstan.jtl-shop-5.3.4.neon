@@ -7,7 +7,7 @@ parameters:
         - ./vendor
         - ./node_modules
     bootstrapFiles:
-        - shops/5.3.3/includes/vendor/autoload.php
-        - shops/5.3.3/includes/config.JTL-Shop.ini.php
-        - shops/5.3.3/includes/defines.php
-        - shops/5.3.3/includes/autoload.php
+        - shops/5.3.4/includes/vendor/autoload.php
+        - shops/5.3.4/includes/config.JTL-Shop.ini.php
+        - shops/5.3.4/includes/defines.php
+        - shops/5.3.4/includes/autoload.php
