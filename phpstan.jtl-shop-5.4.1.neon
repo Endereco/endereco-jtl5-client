@@ -1,0 +1,13 @@
+parameters:
+    level: 8
+    paths:
+        - ./
+    excludePaths:
+        - ./shops
+        - ./vendor
+        - ./node_modules
+    bootstrapFiles:
+        - shops/5.4.1/includes/vendor/autoload.php
+        - shops/5.4.1/includes/config.JTL-Shop.ini.php
+        - shops/5.4.1/includes/defines.php
+        - shops/5.4.1/includes/autoload.php

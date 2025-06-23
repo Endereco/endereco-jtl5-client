@@ -5,10 +5,11 @@ mkdir -p shops
 
 # List of shop versions
 VERSIONS=(
-    "5.4.0"
+    "5.5.1"
+    "5.4.1"
     "5.3.4"
-    "5.2.6"
-    "5.1.7"
+    "5.2.7"
+    "5.1.8"
 )
 
 # Function to convert version to URL format
