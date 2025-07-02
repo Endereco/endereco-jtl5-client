@@ -596,8 +596,12 @@ class EnderecoService
         $detectedEncodingStr2 = mb_detect_encoding($str2) ?: 'ISO-8859-1'; // Fallback to 'ISO-8859-1'
 
         // Convert both strings to the target encoding
-        $convertedStr1 = trim(mb_convert_encoding($str1, $targetEncoding, $detectedEncodingStr1));
-        $convertedStr2 = trim(mb_convert_encoding($str2, $targetEncoding, $detectedEncodingStr2));
+        $convertedStr1 = mb_convert_encoding($str1, $targetEncoding, $detectedEncodingStr1);
+        $convertedStr2 = mb_convert_encoding($str2, $targetEncoding, $detectedEncodingStr2);
+
+        // Handle potential conversion failures
+        $convertedStr1 = $convertedStr1 !== false ? trim($convertedStr1) : $str1;
+        $convertedStr2 = $convertedStr2 !== false ? trim($convertedStr2) : $str2;
 
         // Assuming Text::unhtmlentities() is a method to decode HTML entities
         // Note: PHP's html_entity_decode() could be used if Text::unhtmlentities() is not available
