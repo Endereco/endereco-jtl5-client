@@ -94,33 +94,71 @@ if (window.EnderecoIntegrator) {
     window.EnderecoIntegrator = EnderecoIntegrator;
 }
 
+class TypeaheadManager {
+    static SELECTORS = {
+        ZIP_INPUT: 'input[name="plz"]',
+        CITY_INPUT: 'input[name="ort"]',
+        SHIPPING_ZIP: '[name="register[shipping_address][plz]"]',
+        SHIPPING_CITY: '[name="register[shipping_address][ort]"]'
+    };
+
+    constructor() {
+        this.initializeOnDOMLoad();
+    }
+
+    isInitialized(selector) {
+        const element = document.querySelector(selector);
+        return element &&
+            element.classList.contains('tt-input') &&
+            element.previousElementSibling?.classList.contains('tt-hint');
+    }
+
+    destroy(selector) {
+        const element = document.querySelector(selector);
+        if (!element) return;
+
+        $(selector).typeahead('destroy');
+        const container = element.closest('.typeahead-required');
+        if (container) {
+            container.classList.remove('typeahead-required');
+        }
+    }
+
+    observeChanges(selector) {
+        const observer = new MutationObserver((mutations) => {
+            if (this.isInitialized(selector)) {
+                observer.disconnect();
+                this.destroy(selector);
+            }
+        });
+
+        observer.observe(document.body, {
+            attributes: true,
+            subtree: true
+        });
+    }
+
+    removeFromElement(selector) {
+        if (this.isInitialized(selector)) {
+            this.destroy(selector);
+        } else {
+            this.observeChanges(selector);
+        }
+    }
+
+    initializeOnDOMLoad() {
+        document.addEventListener('DOMContentLoaded', () => {
+            Object.values(TypeaheadManager.SELECTORS).forEach(selector => {
+                if (document.querySelector(selector)) {
+                    this.removeFromElement(selector);
+                }
+            });
+        });
+    }
+}
+
 window.EnderecoIntegrator.waitUntilReady().then( function() {
-    var $removeTypeahead = setInterval( function() {
-        if (
-            $ &&
-            $('[name="ort"]').length &&
-            $('[name="ort"]')[0].classList.contains('tt-input')
-        ) {
-            $('.city_input').typeahead('destroy');
-            $('.city_input').removeClass('bg-typeahead-fix');
-            $('[name="ort"]').closest('.typeahead-required').removeClass('typeahead-required');
-
-            clearInterval($removeTypeahead);
-        }
-    }, 100);
-
-    var $removeTypeahead2 = setInterval( function() {
-        if (
-            $ &&
-            $('[name="register[shipping_address][ort]"]').length &&
-            $('[name="register[shipping_address][ort]"]').typeahead
-        ) {
-            $('[name="register[shipping_address][ort]"]').typeahead('destroy');
-            $('[name="register[shipping_address][ort]"]').removeClass('bg-typeahead-fix');
-            $('[name="register[shipping_address][ort]"]').closest('.typeahead-required').removeClass('typeahead-required');
-            clearInterval($removeTypeahead2);
-        }
-    }, 100);
+    new TypeaheadManager();
 });
 
 var $waitForConfig = setInterval( function() {
