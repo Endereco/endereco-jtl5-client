@@ -20,3 +20,12 @@
         }
     }
 }
+
+.label-slide {
+    input[required] ~ .col-form-label::after,
+    textarea[required] ~ .col-form-label::after,
+    select[required] ~ .col-form-label::after {
+        content: '*';
+        color: #e10505;
+    }
+}
