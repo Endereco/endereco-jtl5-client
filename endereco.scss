@@ -20,3 +20,13 @@
         }
     }
 }
+
+.required-info ~ div,
+.required-info ~ fieldset {
+    input[required] ~ .col-form-label::after,
+    textarea[required] ~ .col-form-label::after,
+    select[required] ~ .col-form-label::after {
+        content: '*';
+        color: #e10505;
+    }
+}
