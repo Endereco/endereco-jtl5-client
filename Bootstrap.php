@@ -88,7 +88,8 @@ class Bootstrap extends Bootstrapper
 
         $attributeHandler = new AttributeHandler(
             $dbConnection,
-            $enderecoService
+            $enderecoService,
+            $plugin
         );
 
         $commentHandler = new CommentHandler(

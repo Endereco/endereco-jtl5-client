@@ -261,6 +261,11 @@
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_selected_automatically</ValueName>
                 </Setting>
+                <Setting type="checkbox" initialValue="" sort="100" conf="Y">
+                    <Name>Ergebnisse der Adressprüfung in Bestellattribute speichern</Name>
+                    <ValueName>endereco_jtl5_client_ams_to_db</ValueName>
+                    <Description>Die Ergebnisse der Prüfungen werden in die Attribute der Bestellung gespeichert. Später sind diese Daten in der WaWi sichtbar.</Description>
+                </Setting>
             </Settingslink>
 
             <Settingslink sort="30">
