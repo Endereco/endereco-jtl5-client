@@ -5,6 +5,7 @@ namespace Plugin\endereco_jtl5_client\src\Handler;
 use JTL\Customer\Customer;
 use JTL\DB\NiceDB;
 use JTL\Checkout\Bestellung;
+use JTL\Plugin\PluginInterface;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\DB\DbInterface;
 use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
@@ -13,6 +14,7 @@ class AttributeHandler
 {
     private DbInterface $dbConnection;
     private EnderecoService $enderecoService;
+    private PluginInterface $plugin;
 
     /**
      * Constructor for the AttributeHandler class.
@@ -21,13 +23,16 @@ class AttributeHandler
      *
      * @param DbInterface $dbConnection The database connection instance.
      * @param EnderecoService $enderecoService The service for handling Endereco operations.
+     * @param PluginInterface $plugin The instance of the plugin.
      */
     public function __construct(
         DbInterface $dbConnection,
-        EnderecoService $enderecoService
+        EnderecoService $enderecoService,
+        PluginInterface $plugin
     ) {
         $this->dbConnection = $dbConnection;
         $this->enderecoService = $enderecoService;
+        $this->plugin = $plugin;
     }
 
     /**
@@ -39,6 +44,10 @@ class AttributeHandler
      */
     public function saveOrderAttribute(array $args): void
     {
+        if (!$this->isSaveAttributesToDbActive()) {
+            return;
+        }
+
         /** @var Bestellung $order */
         $order = $args['oBestellung'];
 
@@ -92,5 +101,19 @@ class AttributeHandler
                 // TODO: log it.
             }
         }
+    }
+
+    /**
+     * Determines if the save attributes to database option is active based on the
+     * plugin configuration.
+     *
+     * @return bool Returns true if the save attributes to database option is enabled
+     * in the plugin settings, false otherwise.
+     */
+    private function isSaveAttributesToDbActive(): bool
+    {
+        $config = $this->plugin->getConfig();
+        $option = $config->getOption('endereco_jtl5_client_ams_to_db');
+        return $option !== null && ('on' === $option->value);
     }
 }
