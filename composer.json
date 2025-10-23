@@ -24,7 +24,8 @@
             "phpstan analyse -c phpstan.jtl-shop-5.2.7.neon",
             "phpstan analyse -c phpstan.jtl-shop-5.3.4.neon",
             "phpstan analyse -c phpstan.jtl-shop-5.4.1.neon",
-            "phpstan analyse -c phpstan.jtl-shop-5.5.1.neon"
+            "phpstan analyse -c phpstan.jtl-shop-5.5.3.neon",
+            "phpstan analyse -c phpstan.jtl-shop-5.6.0.neon"
         ],
         "phpmd": "phpmd ./src,./Bootstrap.php text unusedcode",
         "phpcompat": "bash test_php_versions.sh",
