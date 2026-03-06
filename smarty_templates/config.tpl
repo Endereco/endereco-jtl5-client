@@ -7,10 +7,10 @@
         window.EnderecoIntegrator.onLoad = [];
     }
 
-    function setBlurListener(EAO, elements) {
-        for (const key in elements) {
-            if (Object.prototype.hasOwnProperty.call(elements, key)) {
-                const selector = elements[key];
+    function setBlurListener(EAO, fieldSelectors) {
+        for (const key in fieldSelectors) {
+            if (Object.prototype.hasOwnProperty.call(fieldSelectors, key)) {
+                const selector = fieldSelectors[key];
                 if (!selector) {
                     continue;
                 }
@@ -27,40 +27,40 @@
             }
         }
     }
-    function enderecoInitAMS(prefix, config, cb = undefined) {
+    function enderecoInitAMS(fieldSelectors, options, cb = undefined) {
         if (undefined !== window.EnderecoIntegrator.initAMS) {
-            const $EAO = window.EnderecoIntegrator.initAMS(prefix, config);
-            setBlurListener($EAO, prefix);
+            const $EAO = window.EnderecoIntegrator.initAMS(fieldSelectors, options);
+            setBlurListener($EAO, fieldSelectors);
             if (cb) {
                 cb($EAO);
             }
         } else {
-            window.EnderecoIntegrator.onLoad.push( function() {
-                const $EAO = window.EnderecoIntegrator.initAMS(prefix, config);
-                setBlurListener($EAO, prefix);
+            window.EnderecoIntegrator.onLoad.push(async function() {
+                const $EAO = await window.EnderecoIntegrator.initAMS(fieldSelectors, options);
+                setBlurListener($EAO, fieldSelectors);
                 if (cb) {
                     cb($EAO);
                 }
             });
         }
     }
-    function enderecoInitES(prefix, config) {
+    function enderecoInitES(prefix, options) {
         if (undefined !== window.EnderecoIntegrator.initEmailServices) {
-            window.EnderecoIntegrator.initEmailServices(prefix, config);
+            window.EnderecoIntegrator.initEmailServices(prefix, options);
         } else {
             window.EnderecoIntegrator.onLoad.push( function() {
-                window.EnderecoIntegrator.initEmailServices(prefix, config);
+                window.EnderecoIntegrator.initEmailServices(prefix, options);
             });
         }
     }
-    function enderecoInitPS(prefix, config) {
+    function enderecoInitPS(prefix, options) {
         if (undefined !== window.EnderecoIntegrator.initEmailServices) {
-            const $EPO = window.EnderecoIntegrator.initPersonServices(prefix, config);
-            setBlurListener($EPO, prefix);
+            const $EPO = window.EnderecoIntegrator.initPersonServices(prefix, options);
+            setBlurListener($EPO, options);
         } else {
             window.EnderecoIntegrator.onLoad.push( function() {
-                const $EPO = window.EnderecoIntegrator.initPersonServices(prefix, config);
-                setBlurListener($EPO, prefix);
+                const $EPO = window.EnderecoIntegrator.initPersonServices(prefix, options);
+                setBlurListener($EPO, options);
             });
         }
     }
@@ -173,9 +173,9 @@
             if (
                 isAnyChecked && 
                 window.EnderecoIntegrator && 
-                window.EnderecoIntegrator.integratedObjects.shipping_address_ams
+                window.EnderecoIntegrator.integratedObjects.shipping_address
             ) {
-                window.EnderecoIntegrator.integratedObjects.shipping_address_ams.addressStatus = [];
+                window.EnderecoIntegrator.integratedObjects.shipping_address.addressStatus = [];
             }
         }
 
