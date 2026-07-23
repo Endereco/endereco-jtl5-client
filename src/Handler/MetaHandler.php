@@ -499,6 +499,7 @@ class MetaHandler
                 'EnderecoBillingAddressMeta',
                 new AddressMeta()
             );
+            return;
         }
 
         $canLoadFromDB = !empty($customer->kKunde);
@@ -573,6 +574,7 @@ class MetaHandler
                 'EnderecoShippingAddressMeta',
                 new AddressMeta()
             );
+            return;
         }
 
         $canLoadFromDB = !empty($deliveryAddress->kLieferadresse);
@@ -669,11 +671,15 @@ class MetaHandler
 
         // Handling the case of being in checkout after clicking on "edit delivery address" in payment page.
         if (!empty($_GET['editLieferadresse']) && (\HOOK_BESTELLVORGANG_PAGE === (int) $args[0])) {
-            $customer = $_SESSION['Kunde'];
-            $this->loadBillingAddressMetaToSession($customer);
+            $customer = $_SESSION['Kunde'] ?? null;
+            if (!empty($customer)) {
+                $this->loadBillingAddressMetaToSession($customer);
+            }
 
-            $deliveryAddress = $_SESSION['Lieferadresse'];
-            $this->loadShippingAddressMetaToSession($deliveryAddress);
+            $deliveryAddress = $_SESSION['Lieferadresse'] ?? null;
+            if (!empty($deliveryAddress)) {
+                $this->loadShippingAddressMetaToSession($deliveryAddress);
+            }
         }
 
         // Handling the scenario when editing a specific delivery address in "My account"
@@ -704,10 +710,16 @@ class MetaHandler
             }
 
             // Load billing address metadata for the current customer
-            $this->loadBillingAddressMetaToSession($_SESSION['Kunde']);
+            $customer = $_SESSION['Kunde'] ?? null;
+            if (!empty($customer)) {
+                $this->loadBillingAddressMetaToSession($customer);
+            }
 
             // Load metadata for the Lieferadresse in SESSION
-            $this->loadShippingAddressMetaToSession($_SESSION['Lieferadresse']);
+            $deliveryAddress = $_SESSION['Lieferadresse'] ?? null;
+            if (!empty($deliveryAddress)) {
+                $this->loadShippingAddressMetaToSession($deliveryAddress);
+            }
         }
     }
 

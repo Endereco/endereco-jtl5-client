@@ -73,10 +73,13 @@ class AjaxHandler
         if ($customerExistsInDB) {
             $customer = new Customer($params['customerId']);
         } else {
-            $customer = $_SESSION['Kunde'];
+            $customer = $_SESSION['Kunde'] ?? null;
         }
 
-        $customer = $this->updateAddressData($customer, $params['updatedAddress']);
+        if (!empty($customer)) {
+            $customer = $this->updateAddressData($customer, $params['updatedAddress']);
+        }
+
         $addressMeta = (new AddressMeta())->assign(
             $params['enderecometa']['ts'],
             $params['enderecometa']['status'],
@@ -132,6 +135,10 @@ class AjaxHandler
      */
     public function updateShippingAddress($params): void
     {
+        if (empty($_SESSION['Lieferadresse'] ?? null)) {
+            return;
+        }
+
         $isPresetKnown = !empty($_SESSION['shippingAddressPresetID']);
 
         $deliveryAddress = $this->updateAddressData($_SESSION['Lieferadresse'], $params['updatedAddress']);
