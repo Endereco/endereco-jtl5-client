@@ -16,7 +16,7 @@ Every commit must meet these requirements:
 1. **Stable State**: Each commit should leave the codebase in a working, stable state
 2. **Quality Assurance**: Run `composer run qa` - it must pass without errors
 3. **Installation Tests**: The plugin must be installable and uninstallable with every commit
-4. **JTL-Shop Version Compatibility**: Ensure compatibility across supported JTL-Shop 5.x versions, starting with 5.1.* (e.g. 5.1.8, 5.2.7, 5.3.4, 5.4.1, 5.5.3 and so on). We always test the latest patch.
+4. **JTL-Shop Version Compatibility**: Ensure compatibility across supported JTL-Shop 5.x versions, starting with 5.1.* (e.g. 5.1.8, 5.2.7, 5.3.4, 5.4.1, 5.5.3, 5.6.2, 5.7.2 and so on). We always test the latest patch.
 5. **Don't break**: The existing functionality should not break 
 
 ## Commit Message Guidelines
@@ -100,7 +100,7 @@ Before submitting your PR:
 2. ✅ `composer run qa` passes without errors
 3. ✅ Plugin installs and uninstalls successfully
 4. ✅ Feature branch created from `master` branch
-5. ✅ JTL-Shop version compatibility tested (5.1.* - 5.6.*)
+5. ✅ JTL-Shop version compatibility tested (5.1.* - 5.7.*)
 6. ✅ PHP version compatibility verified using `test_php_versions.sh`
 
 ## Quality Checklist

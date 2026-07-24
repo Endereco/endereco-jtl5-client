@@ -26,7 +26,8 @@
             "phpstan analyse -c phpstan.jtl-shop-5.3.4.neon --memory-limit=1G",
             "phpstan analyse -c phpstan.jtl-shop-5.4.1.neon --memory-limit=1G",
             "phpstan analyse -c phpstan.jtl-shop-5.5.3.neon --memory-limit=1G",
-            "phpstan analyse -c phpstan.jtl-shop-5.6.1.neon --memory-limit=1G"
+            "phpstan analyse -c phpstan.jtl-shop-5.6.2.neon --memory-limit=1G",
+            "phpstan analyse -c phpstan.jtl-shop-5.7.2.neon --memory-limit=1G"
         ],
         "phpmd": "phpmd ./src,./Bootstrap.php text unusedcode",
         "phpcompat": "bash test_php_versions.sh",
