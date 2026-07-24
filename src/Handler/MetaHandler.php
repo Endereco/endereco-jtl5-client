@@ -652,8 +652,8 @@ class MetaHandler
         // Handling the scenario when editing the billing address in "My account" (optionally the shipping too)
         if (!empty($_GET['editRechnungsadresse'])) {
             // Load billing address metadata for the current customer
-            $customer = $_SESSION['Kunde'];
-            if ($customer) {
+            $customer = $_SESSION['Kunde'] ?? null;
+            if (!empty($customer)) {
                 $this->loadBillingAddressMetaToSession($customer);
             }
 
