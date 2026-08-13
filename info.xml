@@ -174,6 +174,42 @@
                 <Description></Description>
                 <Name>endereco_jtl5_client_status_error_country_code_needs_correction</Name>
             </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Hausnummer fehlt in der Eingabe.</VariableLocalized>
+                <VariableLocalized iso="ENG">The house number is missing from the input.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_error_missing_building_number</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Mit der eingegebenen Hausnummer konnte die Adresse nicht verifiziert werden.</VariableLocalized>
+                <VariableLocalized iso="ENG">The address could not be verified with the entered house number.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_error_unresolvable_building_number</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Packstation-Adresse konnte nicht gefunden werden.</VariableLocalized>
+                <VariableLocalized iso="ENG">The Packstation address could not be found.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_error_unresolvable_packstation</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Postfilialen-Adresse konnte nicht gefunden werden.</VariableLocalized>
+                <VariableLocalized iso="ENG">The post office address could not be found.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_error_unresolvable_postoffice</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Postnummer ist ungültig.</VariableLocalized>
+                <VariableLocalized iso="ENG">The Postnummer is invalid.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_error_invalid_postnummer</Name>
+            </Variable>
+            <Variable>
+                <VariableLocalized iso="GER">Die Postnummer fehlt in der Eingabe.</VariableLocalized>
+                <VariableLocalized iso="ENG">The Postnummer is missing from the input.</VariableLocalized>
+                <Description></Description>
+                <Name>endereco_jtl5_client_error_missing_postnummer</Name>
+            </Variable>
         </Locales>
         <Adminmenu>
             <Settingslink sort="0">

@@ -11,8 +11,8 @@ class Migration20260710120000 extends Migration implements IMigration
     {
         // Metadata written by JS SDK 1.10 carries no address fingerprint and
         // cannot prove whether optional fields (subdivision, additional info)
-        // took part in the validation. Purge it once with the upgrade to
-        // plugin 1.4.0 (SDK 1.14.3) so addresses are revalidated on their next
+        // took part in the validation. Purge it once with the upgrade to the
+        // SDK 1.14.5 based release so addresses are revalidated on their next
         // eligible workflow. The table schema stays unchanged.
         $this->execute("DELETE FROM `xplugin_endereco_jtl5_client_tams`");
     }
