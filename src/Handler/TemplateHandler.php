@@ -13,6 +13,9 @@ use JTL\Template\TemplateServiceInterface;
 use JTL\DB\DbInterface;
 use Illuminate\Support\Collection;
 use JTL\Alert\Alert;
+use JTL\Helpers\Form;
+use JTL\Shop;
+use Plugin\endereco_jtl5_client\src\BrowserRpc\BrowserRpcEndpoint;
 use Plugin\endereco_jtl5_client\src\Structures\AddressMeta;
 
 class TemplateHandler
@@ -360,9 +363,15 @@ class TemplateHandler
             }
         }
 
-        $pluginIOPath = URL_SHOP . '/plugins/endereco_jtl5_client/io.php';
+        if (!isset($_SESSION['jtl_token'])) {
+            Form::getTokenInput();
+        }
+        $token = $_SESSION['jtl_token'] ?? null;
+        if (!is_string($token) || $token === '') {
+            return;
+        }
 
-        $agentInfo = "Endereco JTL5 Client v" . $this->plugin->getMeta()->getVersion();
+        $browserRpcUrl = rtrim(Shop::getURL(), '/') . BrowserRpcRouteHandler::ROUTE_SLUG;
 
         $countryMappingJSON = json_encode($countryMapping);
         if (!$countryMappingJSON) {
@@ -373,8 +382,8 @@ class TemplateHandler
             ->assign('endereco_plugin_config', $this->plugin->getConfig())
             ->assign('endereco_locales', $this->plugin->getLocalization())
             ->assign('endereco_plugin_ver', $this->plugin->getMeta()->getVersion())
-            ->assign('endereco_agent_info', $agentInfo)
-            ->assign('endereco_api_url', $pluginIOPath)
+            ->assign('endereco_api_url', json_encode($browserRpcUrl, JSON_THROW_ON_ERROR))
+            ->assign('endereco_token', json_encode($token, JSON_THROW_ON_ERROR))
             ->assign(
                 'endereco_jtl5_client_country_mapping',
                 str_replace('\'', '\\\'', $countryMappingJSON)
@@ -408,6 +417,7 @@ class TemplateHandler
      * @param string $timestamp The timestamp related to the billing address.
      * @param string $status The status of the billing address.
      * @param string $predictionsSerialized Serialized prediction data for the billing address.
+     * @param string $state The stored state of the billing address (name or ISO code).
      */
     private function addBillingAddressToConfirmationPage(
         phpQueryObject $document,
@@ -420,32 +430,38 @@ class TemplateHandler
         string $additionalInfo,
         string $timestamp,
         string $status,
-        string $predictionsSerialized
+        string $predictionsSerialized,
+        string $state = ''
     ): void {
         if (!$this->isConfirmationPage($document)) {
             return;
         }
 
-        $isJTL51 = false;
-        if (defined('APPLICATION_VERSION')) {
-            $version = APPLICATION_VERSION;
-            /** @phpstan-ignore-next-line */
-            if (version_compare($version, '5.1.0', '>=') && version_compare($version, '5.2.0', '<')) {
-                $isJTL51 = true;
-            }
-        }
+        // The fake form has to expose exactly the same optional address
+        // structure as the normal billing form, otherwise the review check
+        // produces different cache keys and payloads.
+        $hasSubdivision = $this->enderecoService->isSubdivisionFieldEnabled(false)
+            && $this->enderecoService->countryHasSubdivisions($countryCode);
+        $subdivisionCode = $hasSubdivision
+            ? $this->enderecoService->resolveSubdivisionCode($state, $countryCode)
+            : '';
 
-        // Set smarty values for billing.
-        $smarty->assign('endereco_billing_countrycode', $countryCode)
-            ->assign('endereco_billing_postal_code', $postalCode)
-            ->assign('endereco_billing_locality', $locality)
-            ->assign('endereco_billing_street_name', $streetName)
-            ->assign('endereco_billing_building_number', $buildingNumber)
-            ->assign('endereco_billing_addinfo', $additionalInfo)
+        // Session values arrive HTML-entity-encoded on most core paths but raw on
+        // others ($htmlentities = false call sites). Decoding here and escaping in
+        // the template produces identical DOM values either way and matches the
+        // html_entity_decode() treatment of the server-side API payload builder.
+        $smarty->assign('endereco_billing_countrycode', html_entity_decode($countryCode))
+            ->assign('endereco_billing_postal_code', html_entity_decode($postalCode))
+            ->assign('endereco_billing_locality', html_entity_decode($locality))
+            ->assign('endereco_billing_street_name', html_entity_decode($streetName))
+            ->assign('endereco_billing_building_number', html_entity_decode($buildingNumber))
+            ->assign('endereco_billing_addinfo', html_entity_decode($additionalInfo))
+            ->assign('endereco_billing_has_addinfo', $this->enderecoService->isAdditionalInfoFieldEnabled(false))
+            ->assign('endereco_billing_has_subdivision', $hasSubdivision)
+            ->assign('endereco_billing_subdivision_code', $subdivisionCode)
             ->assign('endereco_billing_ts', $timestamp)
             ->assign('endereco_billing_status', $status)
             ->assign('endereco_billing_predictions', $predictionsSerialized)
-            ->assign('endereco_jtl_5_1_legacymode', $isJTL51)
             ->assign(
                 'endereco_shipping_address_is_different',
                 $this->enderecoService->isBillingDifferentFromShipping()
@@ -478,6 +494,7 @@ class TemplateHandler
      * @param string $timestamp The timestamp related to the shipping address.
      * @param string $status The status of the shipping address.
      * @param string $predictionsSerialized Serialized prediction data for the shipping address.
+     * @param string $state The stored state of the shipping address (name or ISO code).
      */
     private function addShippingAddressToConfirmationPage(
         phpQueryObject $document,
@@ -490,7 +507,8 @@ class TemplateHandler
         string $additionalInfo,
         string $timestamp,
         string $status,
-        string $predictionsSerialized
+        string $predictionsSerialized,
+        string $state = ''
     ): void {
         if (!$this->isConfirmationPage($document)) {
             return;
@@ -500,26 +518,26 @@ class TemplateHandler
             return;
         }
 
-        $isJTL51 = false;
-        if (defined('APPLICATION_VERSION')) {
-            $version = APPLICATION_VERSION;
-            /** @phpstan-ignore-next-line */
-            if (version_compare($version, '5.1.0', '>=') && version_compare($version, '5.2.0', '<')) {
-                $isJTL51 = true;
-            }
-        }
+        // See addBillingAddressToConfirmationPage() for the optional-field rules.
+        $hasSubdivision = $this->enderecoService->isSubdivisionFieldEnabled(true)
+            && $this->enderecoService->countryHasSubdivisions($countryCode);
+        $subdivisionCode = $hasSubdivision
+            ? $this->enderecoService->resolveSubdivisionCode($state, $countryCode)
+            : '';
 
-        // Set smarty values for billing.
-        $smarty->assign('endereco_shipping_countrycode', $countryCode)
-            ->assign('endereco_shipping_postal_code', $postalCode)
-            ->assign('endereco_shipping_locality', $locality)
-            ->assign('endereco_shipping_street_name', $streetName)
-            ->assign('endereco_shipping_building_number', $buildingNumber)
-            ->assign('endereco_shipping_addinfo', $additionalInfo)
+        // See addBillingAddressToConfirmationPage() for the decode-then-escape rules.
+        $smarty->assign('endereco_shipping_countrycode', html_entity_decode($countryCode))
+            ->assign('endereco_shipping_postal_code', html_entity_decode($postalCode))
+            ->assign('endereco_shipping_locality', html_entity_decode($locality))
+            ->assign('endereco_shipping_street_name', html_entity_decode($streetName))
+            ->assign('endereco_shipping_building_number', html_entity_decode($buildingNumber))
+            ->assign('endereco_shipping_addinfo', html_entity_decode($additionalInfo))
+            ->assign('endereco_shipping_has_addinfo', $this->enderecoService->isAdditionalInfoFieldEnabled(true))
+            ->assign('endereco_shipping_has_subdivision', $hasSubdivision)
+            ->assign('endereco_shipping_subdivision_code', $subdivisionCode)
             ->assign('endereco_shipping_ts', $timestamp)
             ->assign('endereco_shipping_status', $status)
-            ->assign('endereco_shipping_predictions', $predictionsSerialized)
-            ->assign('endereco_jtl_5_1_legacymode', $isJTL51);
+            ->assign('endereco_shipping_predictions', $predictionsSerialized);
 
         $html = $smarty->fetch(self::TEMPLATE_CHECKOUT_FAKE_SHIPPING_FORM);
 
@@ -540,6 +558,10 @@ class TemplateHandler
      */
     public function generalTemplateIntegration(array $args): void
     {
+        if (!$this->isBrowserRpcConfigurationValid()) {
+            return;
+        }
+
         // Set variables.
         $smarty = $args['smarty'];
         $document = $args['document'];
@@ -603,7 +625,8 @@ class TemplateHandler
             $_SESSION['Kunde']->cAdressZusatz ?? '',
             $_SESSION['EnderecoBillingAddressMeta']['enderecoamsts'] ?? '',
             $_SESSION['EnderecoBillingAddressMeta']['enderecoamsstatus'] ?? '',
-            $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions'] ?? ''
+            $_SESSION['EnderecoBillingAddressMeta']['enderecoamspredictions'] ?? '',
+            $_SESSION['Kunde']->cBundesland ?? ''
         );
 
         $this->addShippingAddressToConfirmationPage(
@@ -617,7 +640,8 @@ class TemplateHandler
             $_SESSION['Lieferadresse']->cAdressZusatz ?? '',
             $_SESSION['EnderecoShippingAddressMeta']['enderecoamsts'] ?? '',
             $_SESSION['EnderecoShippingAddressMeta']['enderecoamsstatus'] ?? '',
-            $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions'] ?? ''
+            $_SESSION['EnderecoShippingAddressMeta']['enderecoamspredictions'] ?? '',
+            $_SESSION['Lieferadresse']->cBundesland ?? ''
         );
 
         $this->includeSDK($document, $smarty);
@@ -640,6 +664,10 @@ class TemplateHandler
      */
     public function addSpecialPayPalCheckoutListener(array $args)
     {
+        if (!$this->isBrowserRpcConfigurationValid()) {
+            return;
+        }
+
         // Set variables.
         $smarty = $args['smarty'];
         $document = $args['document'];
@@ -652,6 +680,23 @@ class TemplateHandler
             $document,
             $smarty
         );
+    }
+
+    /**
+     * @return array{apiKey: mixed, remoteUrl: mixed, agent: string}
+     */
+    private function getBrowserRpcConfiguration(): array
+    {
+        return [
+            'apiKey' => $this->plugin->getConfig()->getValue('endereco_jtl5_client_api_key'),
+            'remoteUrl' => $this->plugin->getConfig()->getValue('endereco_jtl5_client_remote_url'),
+            'agent' => 'Endereco JTL5 Client v' . $this->plugin->getMeta()->getVersion(),
+        ];
+    }
+
+    private function isBrowserRpcConfigurationValid(): bool
+    {
+        return BrowserRpcEndpoint::isConfigurationValid($this->getBrowserRpcConfiguration());
     }
 
     /**
