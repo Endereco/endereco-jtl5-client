@@ -6,7 +6,6 @@ branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 echo "Make store version"
 rm -rf endereco_jtl5_client
 rsync -ar --exclude 'endereco_jtl5_client' --exclude 'node_modules' --exclude 'vendor' --exclude 'shops' ./* ./endereco_jtl5_client
-cp .htaccess ./endereco_jtl5_client/.htaccess
 rm endereco_jtl5_client/webpack.config.js
 rm endereco_jtl5_client/ruleset.xml
 rm endereco_jtl5_client/package-lock.json
