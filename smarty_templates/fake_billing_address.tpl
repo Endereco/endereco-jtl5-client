@@ -1,5 +1,5 @@
-<div class="endereco-fake-addresses" style="display: none !important">
-    <div>
+<div class="endereco-fake-addresses" style="display: none !important;">
+    <form>
         <input id="endereco_billing_countrycode" type="text" value="{$endereco_billing_countrycode}">
         <input id="endereco_billing_postal_code" type="text" value="{$endereco_billing_postal_code}">
         <input id="endereco_billing_locality" type="text" value="{$endereco_billing_locality}">
@@ -21,42 +21,55 @@
                 data-building-number="{$endereco_billing_building_number}"
                 data-additional-info="{$endereco_billing_addinfo}"
                 data-copy-shipping="{if !$endereco_shipping_address_is_different}true{else}false{/if}"
+                {if $endereco_jtl_5_1_legacymode}
+                    data-io-url="io.php?io=endereco_inner_request"
+                {else}
+                    data-io-url="io?io=endereco_inner_request"
+                {/if}
         >
-    </div>
-
+    </form>
     <script>
-        var ioUrl = ''
-        {if $endereco_jtl_5_1_legacymode}
-            ioUrl = 'io.php?io=endereco_inner_request';
-        {else}
-            ioUrl = 'io?io=endereco_inner_request';
-        {/if}
         {literal}
-        (function() {
+        (function () {
             function afterCreateHandler(EAO) {
+                let billingNeedsPageReload = false;
+
                 if (!EAO) {
                     return;
                 }
 
-                const handleAddressConfirmation = function() {
-                    postAddressData(EAO);
-                };
-
-                EAO.waitForAllExtension().then( function() {
-                    EAO.onEditAddress.push(function() {
+                EAO.waitForAllExtension().then(function () {
+                    EAO.onEditAddress.push(function () {
                         window.location = 'bestellvorgang.php?editRechnungsadresse=1';
                     });
-                    EAO.onConfirmAddress.push(handleAddressConfirmation);
-                    EAO.onAfterAddressCheckSelected.push(handleAddressConfirmation);
-                })
+
+                    EAO.onAfterAddressPersisted.push((e, result) => {
+                        if (result.processStatus === 'finished') {
+                            postAddressData(EAO, billingNeedsPageReload);
+                        }
+
+                        return Promise.resolve();
+                    });
+
+                    EAO.onAfterAddressCheckSelected.push(function (EAO) {
+                        if (EAO._addressPredictionsIndex >= 0) {
+                            billingNeedsPageReload = true;
+                        }
+                    });
+                });
             }
 
-            function postAddressData(EAO) {
+            function postAddressData(EAO, reload = false) {
                 const originalAddress = document.querySelector('#endereco_billing_address');
+
                 if (!originalAddress) {
                     return;
                 }
+
+                const ioUrl = originalAddress.dataset.ioUrl;
+
                 EAO._awaits++;
+
                 EAO.util.axios({
                     method: 'post',
                     url: ioUrl,
@@ -81,47 +94,53 @@
                             }
                         }
                     }
-                }).then(function(response) {
+                }).then(function (response) {
+
+                    if (!reload) {
+                        return;
+                    }
+
                     const reloadHandler = () => {
                         EAO.waitForAllPopupsToClose().then(() => {
                             window.setTimeout(() => {
-                                if(window.EnderecoIntegrator.popupQueue > 0) {
+                                if (window.EnderecoIntegrator.popupQueue > 0) {
                                     // We are still waiting for all popups to close
                                     reloadHandler();
                                     return;
                                 }
-                                window.location.href = window.location.href;
+                                window.location.reload();
                             }, 100);
                         });
                     }
                     reloadHandler();
-                }).catch(function(error) {
+                }).catch(function (error) {
                     console.error('Error during address update:', error);
-                }).finally(function() {
+                }).finally(function () {
                     EAO._awaits--;
                 });
             }
 
             enderecoInitAMS(
-                '',
+                {
+                    countryCode: '#endereco_billing_countrycode',
+                    postalCode: '#endereco_billing_postal_code',
+                    locality: '#endereco_billing_locality',
+                    streetName: '#endereco_billing_street_name',
+                    buildingNumber: '#endereco_billing_building_number',
+                    additionalInfo: '#endereco_billing_addinfo',
+                    addressTimestamp: '#endereco_billing_ts',
+                    addressStatus: '#endereco_billing_status',
+                    addressPredictions: '#endereco_billing_predictions'
+                },
                 {
                     name: 'billing_address',
                     addressType: 'billing_address',
-                    postfixCollection: {
-                        countryCode: '#endereco_billing_countrycode',
-                        postalCode: '#endereco_billing_postal_code',
-                        locality: '#endereco_billing_locality',
-                        streetName: '#endereco_billing_street_name',
-                        buildingNumber: '#endereco_billing_building_number',
-                        additionalInfo: '#endereco_billing_addinfo',
-                        addressTimestamp: '#endereco_billing_ts',
-                        addressStatus: '#endereco_billing_status',
-                        addressPredictions: '#endereco_billing_predictions'
-                    }
+                    ajaxForm: false,
+                    intent: 'review'
                 },
                 afterCreateHandler
             );
         })();
+        {/literal}
     </script>
-    {/literal}
 </div>
