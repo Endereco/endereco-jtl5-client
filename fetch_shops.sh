@@ -5,8 +5,9 @@ mkdir -p shops
 
 # List of shop versions
 VERSIONS=(
-    "5.7.2"
-    "5.6.2"
+    "5.8.0"
+    "5.7.3"
+    "5.6.3"
     "5.5.3"
     "5.4.1"
     "5.3.4"
