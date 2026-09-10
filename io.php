@@ -122,8 +122,6 @@ try {
     } else {
         header($http[500]);
     }
-
-    curl_close($ch);
 } catch(\Exception $e) {
     $message = $e->getMessage();
 }
