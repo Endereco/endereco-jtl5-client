@@ -48,7 +48,12 @@ class BrowserRpcRouteHandler
         );
 
         if ($outcome['failure'] !== null) {
-            $this->plugin->getLogger()->error('Browser RPC endpoint failure', $outcome['failure']);
+            // The details belong in the message, as the handler does not expect a context.
+            $details = [];
+            foreach ($outcome['failure'] as $key => $value) {
+                $details[] = $key . '=' . $value;
+            }
+            $this->plugin->getLogger()->error('Browser RPC endpoint failure: ' . implode(', ', $details));
         }
 
         return new JsonResponse(
