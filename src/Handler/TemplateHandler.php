@@ -378,6 +378,13 @@ class TemplateHandler
             $countryMappingJSON = '[]';
         }
 
+        // Emitted as a JavaScript object literal, the HEX flags keep it safe inside <script>.
+        $subdivisionMappingJSON = json_encode(
+            $this->enderecoService->getSubdivisionCodeToNameMapping(),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_FORCE_OBJECT
+            | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
+        );
+
         $smarty->assign('endereco_theme_name', strtolower($templateName))
             ->assign('endereco_plugin_config', $this->plugin->getConfig())
             ->assign('endereco_locales', $this->plugin->getLocalization())
@@ -387,7 +394,8 @@ class TemplateHandler
             ->assign(
                 'endereco_jtl5_client_country_mapping',
                 str_replace('\'', '\\\'', $countryMappingJSON)
-            );
+            )
+            ->assign('endereco_jtl5_client_subdivision_mapping', $subdivisionMappingJSON);
 
         $html = $smarty->fetch(self::TEMPLATE_CONFIG);
         $document->find('head')->prepend($html);

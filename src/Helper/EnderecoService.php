@@ -322,6 +322,44 @@ class EnderecoService
     }
 
     /**
+     * Builds the ISO-3166-2 code to state name mapping for the frontend SDK.
+     *
+     * The SDK uses this mapping to display state names such as "Bayern"
+     * instead of the code suffix "BY". The names are the same as in JTL's
+     * state select. The mapping is empty when the state field is disabled
+     * for both the billing and the shipping address.
+     *
+     * @return array<string, string> State names keyed by uppercase ISO-3166-2 code.
+     */
+    public function getSubdivisionCodeToNameMapping(): array
+    {
+        if (!$this->isSubdivisionFieldEnabled(false) && !$this->isSubdivisionFieldEnabled(true)) {
+            return [];
+        }
+
+        $rows = $this->dbConnection->queryPrepared(
+            'SELECT `cCode`, `cName` FROM `tstaat`',
+            [],
+            2
+        );
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $mapping = [];
+        foreach ($rows as $row) {
+            $code = strtoupper(trim((string) $row->cCode));
+            $name = trim((string) $row->cName);
+            if ('' !== $code && '' !== $name) {
+                $mapping[$code] = $name;
+            }
+        }
+
+        return $mapping;
+    }
+
+    /**
      * Validates and checks an address using the AddressCheck service.
      *
      * This method takes an address object, which can be of type Customer, Lieferadresse,
