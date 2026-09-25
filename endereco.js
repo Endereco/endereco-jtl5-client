@@ -193,18 +193,27 @@ EnderecoIntegrator.watchSubdivisionField = function(EAO, subdivisionSelector) {
         });
 
         if (EAO._subscribers.subdivisionCode.length === 0) {
+            EAO.addSubscriber(new EnderecoIntegrator.constructors.EnderecoSubscriber(
+                'subdivisionCode',
+                element,
+                { autosubscribeToStatus: false }
+            ));
+
             // NOVA only swaps the select element, so the parent container (the SDK's
-            // status target) usually survives; autosubscribing again would add a
-            // duplicate status subscriber per replacement.
+            // status target) usually survives with its status subscriber. The SDK
+            // loses that subscriber when NOVA swaps the element during registration.
+            // A replacement misses the status the SDK already indicated, so syncValue
+            // copies it to the unmarked wrapper once the subscriber is registered.
             const hasStatusSubscriberOnParent = (EAO._subscribers.subdivisionCodeStatus || []).some(function(subscriber) {
                 return subscriber.object === element.parentNode;
             });
-            const subscriber = new EnderecoIntegrator.constructors.EnderecoSubscriber(
-                'subdivisionCode',
-                element,
-                { autosubscribeToStatus: !hasStatusSubscriberOnParent }
-            );
-            EAO.addSubscriber(subscriber);
+            if (!hasStatusSubscriberOnParent) {
+                EAO.addSubscriber(new EnderecoIntegrator.constructors.EnderecoSubscriber(
+                    'subdivisionCodeStatus',
+                    element.parentNode,
+                    { valueContainer: 'classList', syncValue: true }
+                ));
+            }
         }
 
         EnderecoIntegrator.prepareDOMElement(element, EAO);
