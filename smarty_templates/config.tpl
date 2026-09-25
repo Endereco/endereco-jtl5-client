@@ -147,6 +147,7 @@
         }
         {/literal}
         window.EnderecoIntegrator.countryCodeToNameMapping = JSON.parse('{$endereco_jtl5_client_country_mapping}');
+        window.EnderecoIntegrator.subdivisionCodeToNameMapping = {$endereco_jtl5_client_subdivision_mapping nofilter};
         {literal}
         // Execute all function that have been called throughout the page.
         window.EnderecoIntegrator.onLoad.forEach( function(callback) {
