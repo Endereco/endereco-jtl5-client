@@ -297,7 +297,47 @@
                     <Description></Description>
                     <ValueName>endereco_jtl5_client_wawi_address_selected_automatically</ValueName>
                 </Setting>
-                <Setting type="checkbox" initialValue="" sort="100" conf="Y">
+                <Setting type="text" initialValue="Land" sort="100" conf="Y">
+                    <Name>Labelt das Land bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_country</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Bundesland" sort="110" conf="Y">
+                    <Name>Labelt das Bundesland bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_subdivision</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Postleitzahl" sort="120" conf="Y">
+                    <Name>Labelt die Postleitzahl bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_postcode</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Ort" sort="130" conf="Y">
+                    <Name>Labelt den Ort bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_locality</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Straße" sort="140" conf="Y">
+                    <Name>Labelt die Straße bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_street</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Hausnummer" sort="150" conf="Y">
+                    <Name>Labelt die Hausnummer bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_building_number</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="Adresszusatz" sort="160" conf="Y">
+                    <Name>Labelt den Adresszusatz bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_additional</ValueName>
+                </Setting>
+                <Setting type="text" initialValue="leer" sort="170" conf="Y">
+                    <Name>Markiert ein leeres Adressfeld bei einer Adressänderung</Name>
+                    <Description></Description>
+                    <ValueName>endereco_jtl5_client_wawi_empty</ValueName>
+                </Setting>
+                <Setting type="checkbox" initialValue="" sort="180" conf="Y">
                     <Name>Ergebnisse der Adressprüfung in Bestellattribute speichern</Name>
                     <ValueName>endereco_jtl5_client_ams_to_db</ValueName>
                     <Description>Die Ergebnisse der Prüfungen werden in die Attribute der Bestellung gespeichert. Später sind diese Daten in der WaWi sichtbar.</Description>
