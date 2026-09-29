@@ -8,6 +8,7 @@ use JTL\Checkout\Bestellung;
 use JTL\Plugin\PluginInterface;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Plugin\Data\Config;
+use JTL\Helpers\Text;
 
 class CommentHandler
 {
@@ -148,10 +149,11 @@ class CommentHandler
      *
      * @param string $predictionsSerialized An array of predicted address components.
      * @param mixed  $address               The original address object (either delivery or billing address).
+     * @param Config $config                Configuration object containing message templates for different status codes
      *
      * @return string A string containing advice for address corrections, if applicable.
      */
-    private function processPredictions(string $predictionsSerialized, $address): string
+    private function processPredictions(string $predictionsSerialized, $address, Config $config): string
     {
         $correctionAdvice = "";
         $predictions = json_decode($predictionsSerialized, true);
@@ -165,19 +167,69 @@ class CommentHandler
 
             // Compare each address component with the predicted value and add to corrections if different
             if ($address->cStrasse !== $predictedAddress['streetName']) {
-                $corrections[] = $address->cStrasse . " -> " . $predictedAddress['streetName'];
+                $corrections[]
+                    = $config->getValue('endereco_jtl5_client_wawi_street') . ': '
+                    . $this->formatPredictionElementForDisplay($address->cStrasse, $config)
+                    . " -> "
+                    . $this->formatPredictionElementForDisplay($predictedAddress['streetName'], $config);
             }
+
             if ($address->cHausnummer !== $predictedAddress['buildingNumber']) {
-                $corrections[] = $address->cHausnummer . " -> " . $predictedAddress['buildingNumber'];
+                $corrections[]
+                    = $config->getValue('endereco_jtl5_client_wawi_building_number') . ': '
+                    . $this->formatPredictionElementForDisplay($address->cHausnummer, $config)
+                    . " -> "
+                    . $this->formatPredictionElementForDisplay($predictedAddress['buildingNumber'], $config);
             }
+
+            if (
+                array_key_exists('additionalInfo', $predictedAddress)
+                && $address->cAdressZusatz !== $predictedAddress['additionalInfo']
+            ) {
+                $corrections[]
+                    = $config->getValue('endereco_jtl5_client_wawi_additional') . ': '
+                    . $this->formatPredictionElementForDisplay($address->cAdressZusatz, $config)
+                    . " -> "
+                    . $this->formatPredictionElementForDisplay($predictedAddress['additionalInfo'], $config);
+            }
+
             if ($address->cPLZ !== $predictedAddress['postalCode']) {
-                $corrections[] = $address->cPLZ . " -> " . $predictedAddress['postalCode'];
+                $corrections[]
+                    = $config->getValue('endereco_jtl5_client_wawi_postcode') . ': '
+                    . $this->formatPredictionElementForDisplay($address->cPLZ, $config)
+                    . " -> "
+                    . $this->formatPredictionElementForDisplay($predictedAddress['postalCode'], $config);
             }
+
             if ($address->cOrt !== $predictedAddress['locality']) {
-                $corrections[] = $address->cOrt . " -> " . $predictedAddress['locality'];
+                $corrections[]
+                    = $config->getValue('endereco_jtl5_client_wawi_locality') . ': '
+                    . $this->formatPredictionElementForDisplay($address->cOrt, $config)
+                    . " -> "
+                    . $this->formatPredictionElementForDisplay($predictedAddress['locality'], $config);
             }
+
+            if (array_key_exists('subdivisionCode', $predictedAddress)) {
+                $predSubdivisionName = $this->enderecoService->resolveSubdivisionName(
+                    Text::filterXSS((string) $predictedAddress['subdivisionCode']),
+                    strtoupper($predictedAddress['countryCode'] ?? ($address->cLand ?? ''))
+                );
+
+                if ($address->cBundesland !== $predSubdivisionName) {
+                    $corrections[]
+                        = $config->getValue('endereco_jtl5_client_wawi_subdivision') . ': '
+                        . $this->formatPredictionElementForDisplay($address->cBundesland, $config)
+                        . " -> "
+                        . $this->formatPredictionElementForDisplay($predSubdivisionName, $config);
+                }
+            }
+
             if (strtolower($address->cLand) !== strtolower($predictedAddress['countryCode'])) {
-                $corrections[] = $address->cLand . " -> " . strtoupper($predictedAddress['countryCode']);
+                $corrections[]
+                    = $config->getValue('endereco_jtl5_client_wawi_country') . ': '
+                    . $this->formatPredictionElementForDisplay($address->cLand, $config)
+                    . " -> "
+                    . $this->formatPredictionElementForDisplay(strtoupper($predictedAddress['countryCode']), $config);
             }
 
             // Combine all corrections into a single string, separated by new lines
@@ -185,6 +237,21 @@ class CommentHandler
         }
 
         return $correctionAdvice;
+    }
+
+    /**
+     * Returns the prediction element for display, or the placeholder if it is empty.
+     *
+     * @param string $predictionElement The value from the address prediction
+     * @param Config $config            Configuration object containing message templates for different status codes
+     *
+     * @return string The original value, or placeholder if it is empty.
+     */
+    private function formatPredictionElementForDisplay(string $predictionElement, Config $config): string
+    {
+        return empty($predictionElement)
+            ? '(' . $config->getValue('endereco_jtl5_client_wawi_empty') . ')'
+            : $predictionElement;
     }
 
     /**
@@ -232,7 +299,11 @@ class CommentHandler
 
         $correctionAdvice = '';
         if ($addressMeta->hasStatus('address_needs_correction')) {
-            $correctionAdvice = $this->processPredictions($addressMeta->getPredictionsAsString(), $address);
+            $correctionAdvice = $this->processPredictions(
+                $addressMeta->getPredictionsAsString(),
+                $address,
+                $this->plugin->getConfig()
+            );
         }
 
         // Update order comment logic
