@@ -44,7 +44,7 @@ class AjaxHandler
         if (isset($addressData['subdivisionCode'])) {
             // JTL persists plain state names ("Bayern"), not ISO codes ("DE-BY").
             $addressObject->cBundesland = $this->enderecoService->resolveSubdivisionName(
-                Text::filterXSS($addressData['subdivisionCode']),
+                Text::filterXSS((string) $addressData['subdivisionCode']),
                 strtoupper($addressData['countryCode'] ?? ($addressObject->cLand ?? ''))
             );
         }
