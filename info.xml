@@ -340,7 +340,7 @@
                 <Setting type="checkbox" initialValue="" sort="180" conf="Y">
                     <Name>Ergebnisse der Adressprüfung in Bestellattribute speichern</Name>
                     <ValueName>endereco_jtl5_client_ams_to_db</ValueName>
-                    <Description>Die Ergebnisse der Prüfungen werden in die Attribute der Bestellung gespeichert. Später sind diese Daten in der WaWi sichtbar.</Description>
+                    <Description>Die Ergebnisse der Prüfungen werden in die Attribute der Bestellung gespeichert. Später sind diese Daten in der WaWi sichtbar. Wichtig: Die Adressdaten der Kunden werden hier nicht verschlüsselt.</Description>
                 </Setting>
             </Settingslink>
 

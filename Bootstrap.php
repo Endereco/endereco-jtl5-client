@@ -22,6 +22,7 @@ use Plugin\endereco_jtl5_client\src\Handler\CommentHandler;
 use Plugin\endereco_jtl5_client\src\Handler\TemplateHandler;
 use Plugin\endereco_jtl5_client\src\Handler\MetaHandler;
 use Plugin\endereco_jtl5_client\src\Handler\SessionHandler;
+use Plugin\endereco_jtl5_client\src\Helper\AddressDataCipher;
 use Plugin\endereco_jtl5_client\src\Helper\EnderecoService;
 use JTL\Smarty\JTLSmarty;
 
@@ -60,9 +61,13 @@ class Bootstrap extends Bootstrapper
         /** @var AlertServiceInterface $alertService */
         $alertService = $container->getAlertService();
 
+        /** @var CryptoServiceInterface $cryptoService */
+        $cryptoService = $container->getCryptoService();
+
         $enderecoService = new EnderecoService(
             $plugin,
-            $dbConnection
+            $dbConnection,
+            new AddressDataCipher($cryptoService)
         );
 
         // This service handles all the hooks.
