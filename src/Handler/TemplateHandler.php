@@ -445,6 +445,11 @@ class TemplateHandler
             return;
         }
 
+        // See EnderecoService::markStoredMetaUndecryptable().
+        if ($this->enderecoService->isStoredMetaUndecryptable(false)) {
+            return;
+        }
+
         // The fake form has to expose exactly the same optional address
         // structure as the normal billing form, otherwise the review check
         // produces different cache keys and payloads.
@@ -523,6 +528,11 @@ class TemplateHandler
         }
 
         if (!$this->enderecoService->isBillingDifferentFromShipping()) {
+            return;
+        }
+
+        // See EnderecoService::markStoredMetaUndecryptable().
+        if ($this->enderecoService->isStoredMetaUndecryptable(true)) {
             return;
         }
 
