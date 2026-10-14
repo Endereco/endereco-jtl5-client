@@ -545,6 +545,9 @@ class MetaHandler
         $shouldCheckAgainstAPI = false;
 
         $addressMeta = new AddressMeta();
+        $storedAddressMeta = new AddressMeta();
+        $isStoredUnencrypted = false;
+        $isStoredUndecryptable = false;
 
         if ($canLoadFromDB) {
             $addressMetaData = $this->dbConnection->queryPrepared(
@@ -555,14 +558,26 @@ class MetaHandler
                 1
             );
 
-            $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+            $loadedAddressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+            $isStoredUndecryptable = $loadedAddressMeta === null;
+            if ($isStoredUndecryptable) {
+                $this->enderecoService->markStoredMetaUndecryptable(false);
+            }
+            $addressMeta = $loadedAddressMeta ?? new AddressMeta();
+            $storedAddressMeta = $addressMeta;
+            $isStoredUnencrypted = $this->enderecoService->hasUnencryptedAddressData($addressMetaData);
         }
 
         // Determine if web api should be used.
         if (!$addressMeta->hasAnyStatus()) {
             if ($canLoadFromDB) {
-                // Existing customer in DB.
-                $shouldCheckAgainstAPI = $this->isExistingCustomerCheckActive();
+                // Existing customer in DB. Stored data that cannot be decrypted
+                // means BLOWFISH_KEY has changed. The shop's own address data is
+                // then no longer readable either, so a check would assess an
+                // unreadable address. Neither the server nor the confirmation
+                // review form checks it, it stays unchecked until the customer
+                // edits it in the address form.
+                $shouldCheckAgainstAPI = $this->isExistingCustomerCheckActive() && !$isStoredUndecryptable;
             } else {
                 // Guest or paypal express checkout import.
                 $isPayPalExpressCheck = $this->isPayPalExpressCheckout() && $this->isPayPalExpressCheckoutCheckActive();
@@ -582,8 +597,14 @@ class MetaHandler
 
         $addressMeta = $this->applyAddressMetaToAddress($customer, $addressMeta);
 
-        // Update database and session if applicable
-        if ($canLoadFromDB && $addressMeta->hasAnyStatus()) {
+        // Update database and session if applicable. Unchanged metadata is not
+        // written back, because every write encrypts the predictions anew. A row
+        // still holding readable address data is written once to encrypt it.
+        if (
+            $canLoadFromDB
+            && $addressMeta->hasAnyStatus()
+            && (!$addressMeta->equals($storedAddressMeta) || $isStoredUnencrypted)
+        ) {
             $this->enderecoService->updateAddressMetaInDB($customer, $addressMeta);
         }
 
@@ -620,6 +641,9 @@ class MetaHandler
         $shouldCheckAgainstAPI = false;
 
         $addressMeta = new AddressMeta();
+        $storedAddressMeta = new AddressMeta();
+        $isStoredUnencrypted = false;
+        $isStoredUndecryptable = false;
 
         if ($canLoadFromDB) {
             $addressMetaData = $this->dbConnection->queryPrepared(
@@ -629,14 +653,26 @@ class MetaHandler
                 [':id' => $deliveryAddress->kLieferadresse],
                 1
             );
-            $addressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+            $loadedAddressMeta = $this->enderecoService->createAddressMetaFromDBData($addressMetaData);
+            $isStoredUndecryptable = $loadedAddressMeta === null;
+            if ($isStoredUndecryptable) {
+                $this->enderecoService->markStoredMetaUndecryptable(true);
+            }
+            $addressMeta = $loadedAddressMeta ?? new AddressMeta();
+            $storedAddressMeta = $addressMeta;
+            $isStoredUnencrypted = $this->enderecoService->hasUnencryptedAddressData($addressMetaData);
         }
 
         // Determine if web api should be used.
         if (!$addressMeta->hasAnyStatus()) {
             if ($canLoadFromDB) {
-                // Existing customer in DB.
-                $shouldCheckAgainstAPI = $this->isExistingCustomerCheckActive();
+                // Existing customer in DB. Stored data that cannot be decrypted
+                // means BLOWFISH_KEY has changed. The shop's own address data is
+                // then no longer readable either, so a check would assess an
+                // unreadable address. Neither the server nor the confirmation
+                // review form checks it, it stays unchecked until the customer
+                // edits it in the address form.
+                $shouldCheckAgainstAPI = $this->isExistingCustomerCheckActive() && !$isStoredUndecryptable;
             } else {
                 // Guest or paypal express checkout import.
                 $isPayPalExpressCheck = $this->isPayPalExpressCheckout() && $this->isPayPalExpressCheckoutCheckActive();
@@ -660,8 +696,14 @@ class MetaHandler
 
         $addressMeta = $this->applyAddressMetaToAddress($deliveryAddress, $addressMeta);
 
-        // Update database and session if applicable
-        if ($canLoadFromDB && $addressMeta->hasAnyStatus()) {
+        // Update database and session if applicable. Unchanged metadata is not
+        // written back, because every write encrypts the predictions anew. A row
+        // still holding readable address data is written once to encrypt it.
+        if (
+            $canLoadFromDB
+            && $addressMeta->hasAnyStatus()
+            && (!$addressMeta->equals($storedAddressMeta) || $isStoredUnencrypted)
+        ) {
             $this->enderecoService->updateAddressMetaInDB($deliveryAddress, $addressMeta);
         }
 
