@@ -22,17 +22,23 @@ class EnderecoService
     public PluginInterface $plugin;
     public string $clientInfo;
     private DbInterface $dbConnection;
+    private AddressDataCipher $addressDataCipher;
 
     /**
      * constructor
      *
-     * @param PluginInterface $oPlugin
-     * @param DbInterface     $dbConnection
+     * @param PluginInterface   $oPlugin
+     * @param DbInterface       $dbConnection
+     * @param AddressDataCipher $addressDataCipher
      */
-    public function __construct(PluginInterface $oPlugin, DbInterface $dbConnection)
-    {
+    public function __construct(
+        PluginInterface $oPlugin,
+        DbInterface $dbConnection,
+        AddressDataCipher $addressDataCipher
+    ) {
         $this->plugin = $oPlugin;
         $this->dbConnection = $dbConnection;
+        $this->addressDataCipher = $addressDataCipher;
         $this->clientInfo = 'Endereco JTL5 Client v' . $oPlugin->getMeta()->getVersion();
     }
 
@@ -704,23 +710,56 @@ class EnderecoService
      * If $data is an stdClass, populates addressMeta properties
      * with $data values or defaults. Returns the addressMeta object.
      *
+     * If the stored predictions cannot be decrypted with the current key, null
+     * is returned and the whole metadata is discarded, so the address counts as
+     * unchecked. Statuses without their predictions would be inconsistent: a
+     * correction status would show the "could not be verified" prompt instead
+     * of the suggestions, and an automatic correction could not be applied.
+     *
      * @param mixed $data Data to populate addressMeta.
      *
-     * @return AddressMeta Populated addressMeta object.
+     * @return AddressMeta|null Populated addressMeta object, or null if the
+     *                          stored predictions cannot be decrypted.
      */
-    public function createAddressMetaFromDBData($data): AddressMeta
+    public function createAddressMetaFromDBData($data): ?AddressMeta
     {
         $addressMeta = new AddressMeta();
 
         if ($data instanceof \stdClass) {
+            $predictions = json_decode((string) ($data->enderecoamspredictions ?? '[]'), true);
+            if (is_array($predictions)) {
+                $predictions = $this->addressDataCipher->decryptPredictions($predictions);
+                if ($predictions === null) {
+                    return null;
+                }
+            }
+
             $addressMeta->assign(
                 $data->enderecoamsts ?? 0,
                 $data->enderecoamsstatus ?? '',
-                $data->enderecoamspredictions ?? '[]'
+                $predictions
             );
         }
 
         return $addressMeta;
+    }
+
+    /**
+     * Checks whether a database row still holds personal address data readable,
+     * e.g. because it was stored before the encryption was introduced and the
+     * migration could not encrypt it, or while BLOWFISH_KEY was missing.
+     *
+     * @param mixed $data The database row.
+     */
+    public function hasUnencryptedAddressData($data): bool
+    {
+        if (!$data instanceof \stdClass) {
+            return false;
+        }
+
+        $predictions = json_decode((string) ($data->enderecoamspredictions ?? '[]'), true);
+
+        return is_array($predictions) && $this->addressDataCipher->hasUnencryptedValues($predictions);
     }
 
     /**
@@ -935,7 +974,12 @@ class EnderecoService
         // Prepare meta values
         $filteredTs = Text::filterXSS((string) $addressMeta->getTimestamp());
         $filteredStatus = Text::filterXSS($addressMeta->getStatusAsString());
-        $filteredPredictions = $addressMeta->getPredictionsAsString();
+        $filteredPredictions = json_encode(
+            $this->addressDataCipher->encryptPredictions($addressMeta->getPredictions())
+        );
+        if ($filteredPredictions === false) {
+            $filteredPredictions = '[]';
+        }
 
         // SQL query with placeholders
         $sql = "INSERT INTO `xplugin_endereco_jtl5_client_tams` 

@@ -162,4 +162,11 @@ class AddressMeta
     {
         return !empty($this->status);
     }
+
+    public function equals(AddressMeta $other): bool
+    {
+        return $this->timestamp === $other->timestamp
+            && $this->status === $other->status
+            && $this->predictions === $other->predictions;
+    }
 }
