@@ -480,6 +480,11 @@ class MetaHandler
             $addressMeta = $checkResult->getMetaAfterAutomaticCorrection();
             $address = $this->enderecoService->applyAutocorrection($address, $checkResult);
             $this->enderecoService->updateAddressInSession($address);
+
+            // Registered customers keep the correction in their record, so it matches the stored meta.
+            if ($this->enderecoService->isObjectCustomer($address) && !empty($address->kKunde)) {
+                $this->enderecoService->updateAddressInDB($address);
+            }
         } else {
             $addressMeta = $checkResult->getMeta();
         }
