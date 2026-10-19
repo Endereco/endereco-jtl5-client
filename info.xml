@@ -253,9 +253,9 @@
             <Settingslink sort="20">
                 <Name>Hinweise für WaWi</Name>
                 <Setting type="checkbox" initialValue="" sort="10" conf="Y">
-                    <Name>Ergebnis der Adressprüfung in das Kommetarfeld der Bestellung schreiben</Name>
+                    <Name>Ergebnis der Adressprüfung in das Kommentarfeld der Bestellung schreiben</Name>
                     <ValueName>endereco_jtl5_client_ams_to_comment</ValueName>
-                    <Description>Die Ergebnisse der Prüfungen werden interpretiert und in lesbarer Form in dem Kommetarfeld der Bestellung gespeichert. Später ist dieser Kommentar in der WaWi sichtbar.</Description>
+                    <Description>Die Ergebnisse der Prüfungen werden interpretiert und in lesbarer Form in dem Kommentarfeld der Bestellung gespeichert. Später ist dieser Kommentar in der WaWi sichtbar.</Description>
                 </Setting>
                 <Setting type="text" initialValue="Lieferadresse ist korrekt. Label kann generiert werden. " sort="20" conf="Y">
                     <Name>Adresse ist 100% korrekt. (address_correct)</Name>
