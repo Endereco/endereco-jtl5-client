@@ -25,6 +25,7 @@ class EnderecoService
     private bool $shippingMetaUndecryptable = false;
     private DbInterface $dbConnection;
     private AddressDataCipher $addressDataCipher;
+    private bool $confirmationReviewEnabled = false;
 
     /**
      * constructor
@@ -42,6 +43,29 @@ class EnderecoService
         $this->dbConnection = $dbConnection;
         $this->addressDataCipher = $addressDataCipher;
         $this->clientInfo = 'Endereco JTL5 Client v' . $oPlugin->getMeta()->getVersion();
+    }
+
+    /**
+     * Marks the current request as the checkout confirmation step with the stored
+     * address meta loaded into the session. Only in this state may the confirmation
+     * review forms be rendered, otherwise they recheck and persist on every page load.
+     *
+     * @return void
+     */
+    public function enableConfirmationReview(): void
+    {
+        $this->confirmationReviewEnabled = true;
+    }
+
+    /**
+     * Checks whether the hidden review forms of the checkout confirmation step may be
+     * rendered in this request.
+     *
+     * @return bool
+     */
+    public function isConfirmationReviewEnabled(): bool
+    {
+        return $this->confirmationReviewEnabled;
     }
 
     /**
