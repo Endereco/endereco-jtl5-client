@@ -253,6 +253,24 @@ class TemplateHandler
     }
 
     /**
+     * Checks if the confirmation review forms may be rendered into the given document.
+     *
+     * The #order-confirm marker alone is not reliable: third-party templates may
+     * render it on every checkout step. Therefore the confirmation hook must also
+     * have loaded the stored address meta in this request, otherwise the review forms
+     * recheck the address and persist it on every page load.
+     *
+     * @param phpQueryObject $document The HTML document to be examined.
+     *
+     * @return bool Returns true if the review forms may be rendered, false otherwise.
+     */
+    private function isConfirmationReviewPage(phpQueryObject $document): bool
+    {
+        return $this->enderecoService->isConfirmationReviewEnabled()
+            && $this->isConfirmationPage($document);
+    }
+
+    /**
      * Adds billing address metadata to the address form in the provided HTML document.
      *
      * This method checks if the HTML document contains a billing address form. If found, it
@@ -441,7 +459,7 @@ class TemplateHandler
         string $predictionsSerialized,
         string $state = ''
     ): void {
-        if (!$this->isConfirmationPage($document)) {
+        if (!$this->isConfirmationReviewPage($document)) {
             return;
         }
 
@@ -518,7 +536,7 @@ class TemplateHandler
         string $predictionsSerialized,
         string $state = ''
     ): void {
-        if (!$this->isConfirmationPage($document)) {
+        if (!$this->isConfirmationReviewPage($document)) {
             return;
         }
 

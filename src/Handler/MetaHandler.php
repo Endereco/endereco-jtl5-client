@@ -787,6 +787,10 @@ class MetaHandler
                 return;
             }
 
+            // Only reached on the real confirmation step and outside the blacklist,
+            // so the review forms never render without the stored meta.
+            $this->enderecoService->enableConfirmationReview();
+
             // Load billing address metadata for the current customer
             $customer = $_SESSION['Kunde'] ?? null;
             if (!empty($customer)) {
