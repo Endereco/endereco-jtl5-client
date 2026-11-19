@@ -21,8 +21,6 @@ class EnderecoService
 {
     public PluginInterface $plugin;
     public string $clientInfo;
-    private bool $billingMetaUndecryptable = false;
-    private bool $shippingMetaUndecryptable = false;
     private DbInterface $dbConnection;
     private AddressDataCipher $addressDataCipher;
     private bool $confirmationReviewEnabled = false;
@@ -731,69 +729,33 @@ class EnderecoService
     }
 
     /**
-     * Marks that the stored meta of the billing or shipping address could not be
-     * decrypted in this request.
-     *
-     * The confirmation review form of that address is then not rendered. With a
-     * changed BLOWFISH_KEY the shop's own address data decrypts to garbage, too.
-     * The review would check that garbage and write it back to the customer
-     * record, encrypted with the new key, so restoring the old key could no
-     * longer recover it.
-     *
-     * @param bool $isShipping True for the shipping address, false for billing.
-     *
-     * @return void
-     */
-    public function markStoredMetaUndecryptable(bool $isShipping): void
-    {
-        if ($isShipping) {
-            $this->shippingMetaUndecryptable = true;
-        } else {
-            $this->billingMetaUndecryptable = true;
-        }
-    }
-
-    /**
-     * Checks whether the stored meta of the billing or shipping address could not
-     * be decrypted in this request.
-     *
-     * @param bool $isShipping True for the shipping address, false for billing.
-     *
-     * @return bool
-     */
-    public function isStoredMetaUndecryptable(bool $isShipping): bool
-    {
-        return $isShipping ? $this->shippingMetaUndecryptable : $this->billingMetaUndecryptable;
-    }
-
-    /**
      * Initializes address metadata from DB data.
      *
      * If $data is an stdClass, populates addressMeta properties
      * with $data values or defaults. Returns the addressMeta object.
      *
-     * If the stored predictions cannot be decrypted with the current key, null
-     * is returned and the whole metadata is discarded, so the address counts as
-     * unchecked. Statuses without their predictions would be inconsistent: a
-     * correction status would show the "could not be verified" prompt instead
-     * of the suggestions, and an automatic correction could not be applied.
+     * A stored result is usable only if it is complete, decrypts with the
+     * current key and is valid in itself, see
+     * AddressDataCipher::readStoredPredictions(). Otherwise null is returned and
+     * the whole result is discarded, statuses included: statuses are never used
+     * without their predictions. The caller treats the address as if no result
+     * had ever been stored and removes the row, see deleteStoredAddressMeta().
      *
      * @param mixed $data Data to populate addressMeta.
      *
      * @return AddressMeta|null Populated addressMeta object, or null if the
-     *                          stored predictions cannot be decrypted.
+     *                          stored result is invalid.
      */
     public function createAddressMetaFromDBData($data): ?AddressMeta
     {
         $addressMeta = new AddressMeta();
 
         if ($data instanceof \stdClass) {
-            $predictions = json_decode((string) ($data->enderecoamspredictions ?? '[]'), true);
-            if (is_array($predictions)) {
-                $predictions = $this->addressDataCipher->decryptPredictions($predictions);
-                if ($predictions === null) {
-                    return null;
-                }
+            $predictions = $this->addressDataCipher->readStoredPredictions(
+                (string) ($data->enderecoamspredictions ?? '[]')
+            );
+            if ($predictions === null) {
+                return null;
             }
 
             $addressMeta->assign(
@@ -807,21 +769,22 @@ class EnderecoService
     }
 
     /**
-     * Checks whether a database row still holds personal address data readable,
-     * e.g. because it was stored before the encryption was introduced and the
-     * migration could not encrypt it, or while BLOWFISH_KEY was missing.
+     * Removes a stored address check result that turned out to be invalid, so it
+     * does not remain as data. Removing it must never break the page.
      *
-     * @param mixed $data The database row.
+     * @param mixed $data The database row as loaded.
      */
-    public function hasUnencryptedAddressData($data): bool
+    public function deleteStoredAddressMeta($data): void
     {
-        if (!$data instanceof \stdClass) {
-            return false;
+        if (!$data instanceof \stdClass || empty($data->id)) {
+            return;
         }
 
-        $predictions = json_decode((string) ($data->enderecoamspredictions ?? '[]'), true);
-
-        return is_array($predictions) && $this->addressDataCipher->hasUnencryptedValues($predictions);
+        try {
+            $this->dbConnection->delete('xplugin_endereco_jtl5_client_tams', 'id', (int) $data->id);
+        } catch (\Throwable) {
+            // The row is read and removed again on the next load.
+        }
     }
 
     /**
@@ -1036,9 +999,13 @@ class EnderecoService
         // Prepare meta values
         $filteredTs = Text::filterXSS((string) $addressMeta->getTimestamp());
         $filteredStatus = Text::filterXSS($addressMeta->getStatusAsString());
-        $filteredPredictions = json_encode(
-            $this->addressDataCipher->encryptPredictions($addressMeta->getPredictions())
-        );
+        $encryptedPredictions = $this->addressDataCipher->encryptPredictions($addressMeta->getPredictions());
+        if ($encryptedPredictions === null) {
+            // Personal data is never stored readable. Without a stored result the
+            // address counts as unchecked on its next load.
+            return;
+        }
+        $filteredPredictions = json_encode($encryptedPredictions);
         if ($filteredPredictions === false) {
             $filteredPredictions = '[]';
         }

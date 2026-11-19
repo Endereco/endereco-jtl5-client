@@ -26,7 +26,7 @@ class Migration20261013120000 extends Migration implements IMigration
         // already encrypted are left alone, which makes a repeated run harmless.
         $cipher = $this->createCipher();
         $this->rewritePredictions(
-            static fn (array $predictions): array => $cipher->encryptPredictions($predictions)
+            static fn (array $predictions): ?array => $cipher->encryptPredictions($predictions)
         );
     }
 
