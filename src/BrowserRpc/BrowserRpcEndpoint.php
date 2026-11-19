@@ -11,6 +11,7 @@ use Throwable;
 class BrowserRpcEndpoint
 {
     private const MAX_REQUEST_BYTES = 32768;
+    private const MAX_LOGGED_UPSTREAM_BODY_CHARACTERS = 200;
     private const ALLOWED_METHODS = [
         'postCodeAutocomplete',
         'cityNameAutocomplete',
@@ -140,6 +141,7 @@ class BrowserRpcEndpoint
                 'transactionId' => $transactionId,
                 'referer' => $referer,
             ]);
+
             $duration = isset($transportResult['durationMs']) ? (int) $transportResult['durationMs'] : null;
             $transportStatus = $transportResult['status'];
             if ($transportStatus !== 'http') {
@@ -154,15 +156,21 @@ class BrowserRpcEndpoint
                 );
             }
 
-            $upstream = $this->decodeUpstreamResponse((string) ($transportResult['body'] ?? ''), $requestId);
-            if ($upstream === null) {
+            $upstreamResponseBody = (string) ($transportResult['body'] ?? '');
+            $upstream = $this->decodeUpstreamResponse($upstreamResponseBody, $requestId);
+            if (is_string($upstream)) {
                 return $this->serverError(
                     502,
                     'upstream_response',
                     $requestId,
                     $method,
                     $requestBytes,
-                    $duration
+                    $duration,
+                    $this->upstreamResponseDetails(
+                        (int) ($transportResult['httpStatus'] ?? 0),
+                        $upstream,
+                        $upstreamResponseBody
+                    )
                 );
             }
 
@@ -236,14 +244,16 @@ class BrowserRpcEndpoint
     }
 
     /**
+     * Returns the decoded document, or the reason it was rejected.
+     *
      * @param int|string|null $requestId
      */
-    private function decodeUpstreamResponse(string $body, $requestId): ?stdClass
+    private function decodeUpstreamResponse(string $body, $requestId): stdClass|string
     {
         try {
             $document = json_decode($body, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
-            return null;
+            return 'not_json';
         }
 
         if (
@@ -251,15 +261,20 @@ class BrowserRpcEndpoint
             || !isset($document->jsonrpc)
             || $document->jsonrpc !== '2.0'
             || !property_exists($document, 'id')
-            || $document->id !== $requestId
         ) {
-            return null;
+            return 'not_jsonrpc';
+        }
+        if ($document->id !== $requestId) {
+            return 'id_mismatch';
         }
 
         $hasResult = property_exists($document, 'result');
         $hasError = property_exists($document, 'error');
-        if ($hasResult === $hasError) {
-            return null;
+        if ($hasResult && $hasError) {
+            return 'result_and_error';
+        }
+        if (!$hasResult && !$hasError) {
+            return 'missing_result_and_error';
         }
         if (
             $hasError
@@ -269,10 +284,57 @@ class BrowserRpcEndpoint
                 || !isset($document->error->message)
                 || !is_string($document->error->message))
         ) {
-            return null;
+            return 'invalid_error';
         }
 
         return $document;
+    }
+
+    /**
+     * Describes a rejected upstream response for the failure log.
+     *
+     * Valid JSON may carry the shopper's names and addresses, so its content is never
+     * logged.
+     *
+     * @return array<string, int|string>
+     */
+    private function upstreamResponseDetails(int $httpStatus, string $reason, string $body): array
+    {
+        $details = [
+            'upstreamHttpStatus' => $httpStatus,
+            'upstreamReason' => $reason,
+        ];
+
+        if ($reason === 'not_json') {
+            $excerpt = $this->upstreamBodyExcerpt($body);
+            if ($excerpt !== '') {
+                // Kept last, as the excerpt may itself contain the log line's separators ", " and "=".
+                $details['upstreamBody'] = $excerpt;
+            }
+        }
+
+        return $details;
+    }
+
+    /**
+     * Returns the start of a non-JSON body as a single line that is safe to show as HTML.
+     */
+    private function upstreamBodyExcerpt(string $body): string
+    {
+        // A body that fails to parse may still contain (part of) a JSON-RPC document
+        // with personal data, e.g. behind a PHP warning or truncated. Everything from
+        // the first JSON object on is therefore left out.
+        if (preg_match('/\{\s*"/', $body, $match, PREG_OFFSET_CAPTURE) === 1) {
+            $body = substr($body, 0, $match[0][1]);
+        }
+
+        $body = mb_scrub($body, 'UTF-8');
+        // Line breaks and other control characters would split the log line.
+        $body = (string) preg_replace('/[\p{Cc}\p{Zl}\p{Zp}]+/u', ' ', $body);
+        $body = trim(mb_substr($body, 0, self::MAX_LOGGED_UPSTREAM_BODY_CHARACTERS, 'UTF-8'));
+
+        // The JTL backend prints log entries unescaped, so markup must not survive.
+        return htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     /**
@@ -300,6 +362,7 @@ class BrowserRpcEndpoint
 
     /**
      * @param int|string|null $requestId
+     * @param array<string, int|string> $details Appended to the failure entry.
      * @return array{
      *     response: array{
      *         status: int,
@@ -315,7 +378,8 @@ class BrowserRpcEndpoint
         $requestId,
         ?string $method,
         int $requestBytes,
-        ?int $duration = null
+        ?int $duration = null,
+        array $details = []
     ): array {
         $correlationId = $this->createCorrelationId();
         $document = $this->errorDocument(-32000, 'Server error', $requestId);
@@ -332,6 +396,7 @@ class BrowserRpcEndpoint
         if ($duration !== null) {
             $failure['upstreamDurationMs'] = $duration;
         }
+        $failure += $details;
 
         return [
             'response' => [
