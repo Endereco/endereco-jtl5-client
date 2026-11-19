@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Plugin\endereco_jtl5_client\src\Helper;
 
+use DateTimeImmutable;
 use JTL\Services\JTL\CryptoServiceInterface;
 use JTL\Shop;
 use Throwable;
@@ -35,6 +36,14 @@ class AddressDataCipher
      */
     private const MARKER = 'endereco:v1:';
 
+    /**
+     * Log entries of this class are written to tjtllog under this key, so a
+     * recent entry can be found again, see wasLoggedRecently().
+     */
+    private const LOG_CHANNEL = 'endereco_jtl5_client';
+    private const LOG_INTERVAL = '-1 hour';
+    private const LOG_REPEAT_NOTE = ' Repeated occurrences are logged at most once per hour.';
+
     private const REASON_FORMAT = 'the stored content is not in the expected format';
     private const REASON_UNENCRYPTED = 'personal fields were stored unencrypted';
     private const REASON_DAMAGED = 'an encrypted value is damaged';
@@ -42,7 +51,8 @@ class AddressDataCipher
         . ' (the key has changed or the value is damaged)';
 
     private CryptoServiceInterface $cryptoService;
-    private bool $failureLogged = false;
+    /** @var array<string, true> Messages already handled in this request. */
+    private array $handledMessages = [];
 
     public function __construct(CryptoServiceInterface $cryptoService)
     {
@@ -246,19 +256,45 @@ class AddressDataCipher
 
     /**
      * Logged as an error, because the shop's default log level shows errors
-     * only. At most one entry per request.
+     * only. A failure that persists, e.g. a missing BLOWFISH_KEY or a changed
+     * key affecting every stored row, occurs on every page view. Each message
+     * is therefore logged at most once per hour. Within a request each message
+     * is handled once, so the log is not looked up again for every further row
+     * or address that fails the same way.
      */
     private function logFailure(string $message): void
     {
-        if ($this->failureLogged) {
+        if (isset($this->handledMessages[$message])) {
             return;
         }
-        $this->failureLogged = true;
+        $this->handledMessages[$message] = true;
 
+        $entry = $message . self::LOG_REPEAT_NOTE;
         try {
-            Shop::Container()->getLogService()->error($message);
+            if ($this->wasLoggedRecently($entry)) {
+                return;
+            }
+            Shop::Container()->getLogService()->error($entry, ['channel' => self::LOG_CHANNEL]);
         } catch (Throwable) {
             // Logging is best effort, a failure must not break the checkout.
         }
+    }
+
+    /**
+     * Looks up the entry in the shop log instead of the object cache, because the
+     * object cache is disabled by default. The log writes its timestamps with
+     * PHP's clock, so the cut-off is computed in PHP as well rather than with the
+     * database's NOW(), which may run in another time zone.
+     */
+    private function wasLoggedRecently(string $entry): bool
+    {
+        $since = (new DateTimeImmutable(self::LOG_INTERVAL))->format('Y-m-d H:i:s');
+
+        return Shop::Container()->getDB()->getSingleObject(
+            'SELECT 1 FROM tjtllog
+                WHERE dErstellt > :since AND cKey = :channel AND cLog = :entry
+                LIMIT 1',
+            [':since' => $since, ':channel' => self::LOG_CHANNEL, ':entry' => $entry]
+        ) !== null;
     }
 }
