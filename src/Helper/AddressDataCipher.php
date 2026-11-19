@@ -77,52 +77,13 @@ class AddressDataCipher
         } catch (Throwable) {
             $this->logFailure(
                 'Endereco: an address check result could not be encrypted, BLOWFISH_KEY is probably'
-                . ' missing. The result is not stored.'
+                . ' missing. The result is not stored and a previous result of the address is'
+                . ' removed, the address counts as never checked.'
             );
             return null;
         }
 
         return $encryptedPredictions;
-    }
-
-    /**
-     * Decrypts the personal fields, values without the prefix are returned
-     * unchanged. Used to restore plain text when the encryption is rolled back.
-     * Stored results that are read for use go through readStoredPredictions(),
-     * which also rejects readable personal fields.
-     *
-     * @param mixed[] $predictions Predictions as stored in the database.
-     *
-     * @return mixed[]|null The readable predictions, or null if any value cannot
-     *                      be decrypted with the current key.
-     */
-    public function decryptPredictions(array $predictions): ?array
-    {
-        foreach ($predictions as $index => $prediction) {
-            if (!is_array($prediction)) {
-                continue;
-            }
-
-            foreach (self::ENCRYPTED_FIELDS as $field) {
-                $value = $prediction[$field] ?? null;
-                if (!is_string($value) || !$this->isEncrypted($value)) {
-                    continue;
-                }
-
-                $decryptedValue = $this->decryptValue($value);
-                if ($decryptedValue === null) {
-                    $this->logFailure(
-                        'Endereco: stored address predictions could not be decrypted, '
-                        . self::REASON_KEY . '.'
-                    );
-                    return null;
-                }
-
-                $predictions[$index][$field] = $decryptedValue;
-            }
-        }
-
-        return $predictions;
     }
 
     /**

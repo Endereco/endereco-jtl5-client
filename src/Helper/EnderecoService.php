@@ -788,6 +788,33 @@ class EnderecoService
     }
 
     /**
+     * Removes the stored result of a billing or shipping address. Removing it must
+     * never break the page.
+     *
+     * The IDs come from the shop's address objects. They are cast, because
+     * JTL 5.3 does not declare the property types.
+     *
+     * @param mixed $billingAddressId  kKunde, or null for a shipping address.
+     * @param mixed $shippingAddressId kLieferadresse, or null for a billing address.
+     */
+    private function deleteStoredAddressMetaOf($billingAddressId, $shippingAddressId): void
+    {
+        try {
+            if ((int) $billingAddressId > 0) {
+                $this->dbConnection->delete('xplugin_endereco_jtl5_client_tams', 'kKunde', (int) $billingAddressId);
+            } elseif ((int) $shippingAddressId > 0) {
+                $this->dbConnection->delete(
+                    'xplugin_endereco_jtl5_client_tams',
+                    'kLieferadresse',
+                    (int) $shippingAddressId
+                );
+            }
+        } catch (\Throwable) {
+            // The row is checked again on its next load.
+        }
+    }
+
+    /**
      * Determines whether the billing address is different from the shipping address.
      *
      * This method checks the session data to determine if the billing address (Kunde) and
@@ -1001,8 +1028,11 @@ class EnderecoService
         $filteredStatus = Text::filterXSS($addressMeta->getStatusAsString());
         $encryptedPredictions = $this->addressDataCipher->encryptPredictions($addressMeta->getPredictions());
         if ($encryptedPredictions === null) {
-            // Personal data is never stored readable. Without a stored result the
-            // address counts as unchecked on its next load.
+            // Personal data is never stored readable, so the result is not stored. A
+            // previous result of the address is removed as well, because it may no
+            // longer match the current check: on its next load the address counts as
+            // never checked.
+            $this->deleteStoredAddressMetaOf($billingAddressId, $shippingAddressId);
             return;
         }
         $filteredPredictions = json_encode($encryptedPredictions);
