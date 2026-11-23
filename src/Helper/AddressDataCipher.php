@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Plugin\endereco_jtl5_client\src\Helper;
 
+use DateTimeImmutable;
 use JTL\Services\JTL\CryptoServiceInterface;
 use JTL\Shop;
 use Throwable;
@@ -35,8 +36,23 @@ class AddressDataCipher
      */
     private const MARKER = 'endereco:v1:';
 
+    /**
+     * Log entries of this class are written to tjtllog under this key, so a
+     * recent entry can be found again, see wasLoggedRecently().
+     */
+    private const LOG_CHANNEL = 'endereco_jtl5_client';
+    private const LOG_INTERVAL = '-1 hour';
+    private const LOG_REPEAT_NOTE = ' Repeated occurrences are logged at most once per hour.';
+
+    private const REASON_FORMAT = 'the stored content is not in the expected format';
+    private const REASON_UNENCRYPTED = 'personal fields were stored unencrypted';
+    private const REASON_DAMAGED = 'an encrypted value is damaged';
+    private const REASON_KEY = 'an encrypted value cannot be decrypted with the current BLOWFISH_KEY'
+        . ' (the key has changed or the value is damaged)';
+
     private CryptoServiceInterface $cryptoService;
-    private bool $failureLogged = false;
+    /** @var array<string, true> Messages already handled in this request. */
+    private array $handledMessages = [];
 
     public function __construct(CryptoServiceInterface $cryptoService)
     {
@@ -46,13 +62,12 @@ class AddressDataCipher
     /**
      * @param mixed[] $predictions Predictions in the internal format.
      *
-     * @return mixed[] The predictions with their personal fields encrypted. If
-     *                 they cannot be encrypted, e.g. because BLOWFISH_KEY is not
-     *                 defined, they are returned unchanged: losing checked data
-     *                 is worse than storing it readable for a while, and the
-     *                 readable values are encrypted once the key is back.
+     * @return mixed[]|null The predictions with their personal fields encrypted,
+     *                      or null if they cannot be encrypted, e.g. because
+     *                      BLOWFISH_KEY is not defined. They must then not be
+     *                      stored at all: personal data is never stored readable.
      */
-    public function encryptPredictions(array $predictions): array
+    public function encryptPredictions(array $predictions): ?array
     {
         $encryptedPredictions = $predictions;
 
@@ -71,46 +86,52 @@ class AddressDataCipher
             }
         } catch (Throwable) {
             $this->logFailure(
-                'Endereco: address predictions could not be encrypted, BLOWFISH_KEY is probably'
-                . ' missing. They are stored readable and encrypted once the key is available.'
+                'Endereco: an address check result could not be encrypted, BLOWFISH_KEY is probably'
+                . ' missing. The result is not stored and a previous result of the address is'
+                . ' removed, the address counts as never checked.'
             );
-            return $predictions;
+            return null;
         }
 
         return $encryptedPredictions;
     }
 
     /**
-     * Values without the prefix are returned unchanged, they were stored before
-     * the encryption was introduced or while BLOWFISH_KEY was missing.
+     * Reads stored predictions for use. A stored result is usable only if it is
+     * in the expected format, holds no readable personal fields and every
+     * encrypted value decrypts with the current key. Anything else invalidates
+     * the whole result, the reason is logged without personal data.
      *
-     * @param mixed[] $predictions Predictions as stored in the database.
+     * @param string $stored The predictions column as stored in the database.
      *
-     * @return mixed[]|null The readable predictions, or null if any value cannot
-     *                      be decrypted with the current key.
+     * @return mixed[]|null The readable predictions, or null if the stored result
+     *                      is invalid.
      */
-    public function decryptPredictions(array $predictions): ?array
+    public function readStoredPredictions(string $stored): ?array
     {
-        foreach ($predictions as $index => $prediction) {
-            if (!is_array($prediction)) {
-                continue;
-            }
+        $problem = $this->findStoredFormatProblem($stored);
+        if ($problem !== null) {
+            $this->logInvalidResult($problem);
+            return null;
+        }
 
+        /** @var array<int, array<string, mixed>> $predictions Ensured by findStoredFormatProblem(). */
+        $predictions = json_decode($stored, true);
+        foreach ($predictions as $index => $prediction) {
             foreach (self::ENCRYPTED_FIELDS as $field) {
                 $value = $prediction[$field] ?? null;
-                if (!is_string($value) || !$this->isEncrypted($value)) {
+                if (!is_string($value) || $value === '') {
                     continue;
+                }
+
+                if (!$this->hasCipherTextShape($value)) {
+                    $this->logInvalidResult(self::REASON_DAMAGED);
+                    return null;
                 }
 
                 $decryptedValue = $this->decryptValue($value);
                 if ($decryptedValue === null) {
-                    $this->logFailure(
-                        'Endereco: stored address predictions could not be decrypted, the BLOWFISH_KEY'
-                        . ' has probably changed. The affected addresses count as unchecked and are not'
-                        . ' checked automatically until the customer edits them. If the key was changed'
-                        . ' on purpose and the shop data was re-encrypted, empty the table'
-                        . ' xplugin_endereco_jtl5_client_tams so that the addresses are checked again.'
-                    );
+                    $this->logInvalidResult(self::REASON_KEY);
                     return null;
                 }
 
@@ -122,25 +143,62 @@ class AddressDataCipher
     }
 
     /**
-     * @param mixed[] $predictions Predictions as stored in the database.
+     * Checks the stored predictions without decrypting them: the expected format
+     * and no readable personal fields. Cheap enough to run over a whole table.
      *
-     * @return bool True if a personal field is still stored readable.
+     * @param string $stored The predictions column as stored in the database.
      */
-    public function hasUnencryptedValues(array $predictions): bool
+    public function isStoredFormatValid(string $stored): bool
     {
+        return $this->findStoredFormatProblem($stored) === null;
+    }
+
+    /**
+     * Expected is a JSON list of predictions, each an object whose personal
+     * fields, if present, are strings that are empty or encrypted.
+     *
+     * @return string|null The reason why the stored predictions are invalid, or
+     *                     null if their format is valid.
+     */
+    private function findStoredFormatProblem(string $stored): ?string
+    {
+        $predictions = json_decode($stored, true);
+        if (!is_array($predictions) || !array_is_list($predictions)) {
+            return self::REASON_FORMAT;
+        }
+
         foreach ($predictions as $prediction) {
-            if (!is_array($prediction)) {
-                continue;
+            if (!is_array($prediction) || ($prediction !== [] && array_is_list($prediction))) {
+                return self::REASON_FORMAT;
             }
 
             foreach (self::ENCRYPTED_FIELDS as $field) {
-                if ($this->isUnencryptedValue($prediction[$field] ?? null)) {
-                    return true;
+                $value = $prediction[$field] ?? null;
+                if ($value !== null && !is_string($value)) {
+                    return self::REASON_FORMAT;
+                }
+                if ($this->isUnencryptedValue($value)) {
+                    return self::REASON_UNENCRYPTED;
                 }
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /**
+     * Checked upfront, because the XTEA implementation reads past the end of a
+     * truncated cipher text instead of failing.
+     */
+    private function hasCipherTextShape(string $value): bool
+    {
+        if (!$this->isEncrypted($value)) {
+            return false;
+        }
+
+        $rawCipherText = base64_decode(substr($value, strlen(self::PREFIX)), true);
+
+        return $rawCipherText !== false && strlen($rawCipherText) >= 16 && strlen($rawCipherText) % 8 === 0;
     }
 
     private function encryptValue(string $value): string
@@ -154,21 +212,13 @@ class AddressDataCipher
      */
     private function decryptValue(string $value): ?string
     {
-        if (!$this->isEncrypted($value)) {
-            return null;
-        }
-
-        // Checked upfront, because the XTEA implementation reads past the end
-        // of a truncated cipher text instead of failing.
-        $cipherText = substr($value, strlen(self::PREFIX));
-        $rawCipherText = base64_decode($cipherText, true);
-        if ($rawCipherText === false || strlen($rawCipherText) < 16 || strlen($rawCipherText) % 8 !== 0) {
+        if (!$this->hasCipherTextShape($value)) {
             return null;
         }
 
         try {
             // XTEA pads the plain text with spaces to full blocks.
-            $plainText = rtrim($this->cryptoService->decryptXTEA($cipherText), ' ');
+            $plainText = rtrim($this->cryptoService->decryptXTEA(substr($value, strlen(self::PREFIX))), ' ');
         } catch (Throwable) {
             return null;
         }
@@ -196,17 +246,55 @@ class AddressDataCipher
         return is_string($value) && $value !== '' && !$this->isEncrypted($value);
     }
 
+    private function logInvalidResult(string $reason): void
+    {
+        $this->logFailure(
+            'Endereco: a stored address check result was discarded, ' . $reason . '. The address'
+            . ' is treated as never checked and is checked again wherever checks are enabled.'
+        );
+    }
+
+    /**
+     * Logged as an error, because the shop's default log level shows errors
+     * only. A failure that persists, e.g. a missing BLOWFISH_KEY or a changed
+     * key affecting every stored row, occurs on every page view. Each message
+     * is therefore logged at most once per hour. Within a request each message
+     * is handled once, so the log is not looked up again for every further row
+     * or address that fails the same way.
+     */
     private function logFailure(string $message): void
     {
-        if ($this->failureLogged) {
+        if (isset($this->handledMessages[$message])) {
             return;
         }
-        $this->failureLogged = true;
+        $this->handledMessages[$message] = true;
 
+        $entry = $message . self::LOG_REPEAT_NOTE;
         try {
-            Shop::Container()->getLogService()->warning($message);
+            if ($this->wasLoggedRecently($entry)) {
+                return;
+            }
+            Shop::Container()->getLogService()->error($entry, ['channel' => self::LOG_CHANNEL]);
         } catch (Throwable) {
             // Logging is best effort, a failure must not break the checkout.
         }
+    }
+
+    /**
+     * Looks up the entry in the shop log instead of the object cache, because the
+     * object cache is disabled by default. The log writes its timestamps with
+     * PHP's clock, so the cut-off is computed in PHP as well rather than with the
+     * database's NOW(), which may run in another time zone.
+     */
+    private function wasLoggedRecently(string $entry): bool
+    {
+        $since = (new DateTimeImmutable(self::LOG_INTERVAL))->format('Y-m-d H:i:s');
+
+        return Shop::Container()->getDB()->getSingleObject(
+            'SELECT 1 FROM tjtllog
+                WHERE dErstellt > :since AND cKey = :channel AND cLog = :entry
+                LIMIT 1',
+            [':since' => $since, ':channel' => self::LOG_CHANNEL, ':entry' => $entry]
+        ) !== null;
     }
 }
