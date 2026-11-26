@@ -8,7 +8,7 @@
   "author": "ilja_weber <ilja@endereco.de>",
   "license": "ISC",
   "dependencies": {
-    "@endereco/js-sdk": "1.14.5",
+    "@endereco/js-sdk": "1.15.0",
     "lodash.merge": "4.6.2",
     "promise-polyfill": "8.3.0"
   },
